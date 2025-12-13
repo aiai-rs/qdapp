@@ -1,0 +1,21 @@
+{
+  "name": "汇盈国际官方客服",
+  "short_name": "汇盈客服",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1621",
+  "theme_color": "#17212b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
