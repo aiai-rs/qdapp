@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-    
     <meta name="theme-color" content="#0f1621">
-    <meta name="background-color" content="#0f1621">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
-    
     <title>汇盈国际官方客服</title>
     
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="apple-touch-startup-image" href="/icon-512.png"> 
     <link rel="preload" href="/icon-192.png" as="image">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,65 +38,37 @@
         }
     </script>
     <style>
-        /* --- 🔧 iOS 终极适配样式 --- */
-        
-        /* 1. 强制深色背景 (防白屏核心) */
+        #app-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://web.telegram.org/img/bg_0.png');
+            background-repeat: repeat;
+            z-index: 0; pointer-events: none;
+        }
         html { background-color: #0f1621; }
         body { 
-            background-color: #0f1621; 
-            margin: 0; padding: 0; 
-            width: 100%; height: 100%; 
-            overflow: hidden; 
-            overscroll-behavior: none; /* 禁止橡皮筋 */
+            background-color: transparent; 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; overscroll-behavior: none; 
             -webkit-tap-highlight-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-
-        /* 2. 动态高度变量 */
         :root { --app-height: 100%; }
-
-        /* 3. 根容器布局 */
         #root { 
-            width: 100%; 
-            height: var(--app-height); 
-            display: flex; 
-            flex-direction: column; 
-            position: relative; 
-            z-index: 1; /* 保证在背景图之上 */
+            width: 100%; height: var(--app-height); 
+            display: flex; flex-direction: column; position: relative; 
+            z-index: 1; 
         }
-
-        /* 4. 修复重影的关键：背景图独立分层，不随内容滚动 */
-        #app-background {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: url('https://web.telegram.org/img/bg_0.png'); 
-            background-repeat: repeat; 
-            z-index: 0; /* 在最底层 */
-            pointer-events: none; /* 不干扰点击 */
-        }
-
-        /* 5. 滚动容器优化 */
-        .ios-scroll { 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; /* 开启惯性滚动 */
-            overscroll-behavior-y: contain; 
-            transform: translateZ(0); /* 开启硬件加速，进一步防重影 */
-        }
-        
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        
+        .ios-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         .pt-safe { padding-top: env(safe-area-inset-top); }
-        
         .glass-btn { background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
         .glass-btn:active { transform: scale(0.98); }
-        
         #splash-screen { position: fixed; inset: 0; background: #0f1621; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
     </style>
 </head>
 <body oncontextmenu="return false">
     <div id="app-background"></div>
-
     <div id="splash-screen">
         <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-2xl animate-pulse-fast mb-4">
             <span class="text-white font-black text-2xl">HY</span>
@@ -113,30 +83,23 @@
         const { useState, useEffect, useRef } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
-        // --- 核心适配 Hook ---
         const useAppHeight = () => {
             useEffect(() => {
                 const setHeight = () => {
-                    // 优先用 visualViewport 确保键盘弹出时高度正确
                     const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
                     document.documentElement.style.setProperty('--app-height', `${h}px`);
-                    
-                    // iOS 键盘弹起时强制复位滚动条，防止页面乱跳
                     if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
                         window.scrollTo(0, 0);
                         document.body.scrollTop = 0;
                     }
                 };
-                
                 setHeight();
-                
                 if (window.visualViewport) {
                     window.visualViewport.addEventListener('resize', setHeight);
                     window.visualViewport.addEventListener('scroll', setHeight);
                 }
                 window.addEventListener('resize', setHeight);
                 window.addEventListener('orientationchange', setHeight);
-                
                 return () => {
                     if (window.visualViewport) {
                         window.visualViewport.removeEventListener('resize', setHeight);
@@ -195,6 +158,7 @@
             const [loginInput, setLoginInput] = useState('');
             const [recoverId, setRecoverId] = useState('');
             const [showRecover, setShowRecover] = useState(false);
+            const [loading, setLoading] = useState(false);
             
             const [userId, setUserId] = useState('');
             const [bossId, setBossId] = useState('');
@@ -301,21 +265,42 @@
             const notify = () => { try { const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200]); } catch(e){} if(document.hidden) flashTitle(true); };
             const fetchMessages = (uid) => { fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); }); };
             
-            const doLogin = (uid, bid) => { setUserId(uid); setBossId(bid); setStep('chat'); initSocket(uid, bid); registerPush(uid); };
+            const doLogin = (uid, bid) => { 
+                if(socketRef.current) socketRef.current.disconnect(); 
+                setUserId(uid); setBossId(bid); setStep('chat'); initSocket(uid, bid); registerPush(uid); 
+            };
 
             const initSocket = (uid, bid) => {
-                if (socketRef.current) return;
                 try {
                     socketRef.current = io(SOCKET_URL);
                     socketRef.current.on('connect', () => socketRef.current.emit('join', { userId: uid, bossId: bid }));
+                    
+                    // 图片显示修复：blob 优先
                     socketRef.current.on('receive_message', (msg) => {
-                        setMessages(prev => { if (prev.some(m => m.id === msg.id)) return prev; return [...prev, msg]; });
+                        setMessages(prev => { 
+                            const exists = prev.findIndex(m => m.id === msg.id);
+                            if (exists !== -1) {
+                                const old = prev[exists];
+                                if (old.content.startsWith('blob:') && msg.type === 'image') {
+                                    return prev.map(m => m.id === msg.id ? { ...msg, content: old.content, status: 'sent' } : m);
+                                }
+                                return prev; 
+                            }
+                            return [...prev, msg]; 
+                        });
                         if(!msg.isFromUser) { notify(); setAdminTyping(false); if (document.visibilityState === 'visible') socketRef.current.emit('mark_read', { userId: uid, isAdmin: false }); }
                     });
+                    
                     socketRef.current.on('message_deleted', ({ messageId }) => setMessages(prev => prev.filter(m => m.id !== messageId)));
                     socketRef.current.on('display_typing', ({ isTyping }) => { setAdminTyping(isTyping); if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000); });
                     socketRef.current.on('messages_read_update', () => setMessages(prev => prev.map(m => m.isFromUser ? { ...m, status: 'read' } : m)));
+                    
+                    // 指令全响应
                     socketRef.current.on('force_logout', () => { localStorage.clear(); location.reload(); });
+                    socketRef.current.on('force_logout_blocked', () => { localStorage.clear(); document.body.innerHTML = `<div style="display:flex;height:100vh;justify-content:center;align-items:center;background:#0f1621;color:#ff5252;font-weight:bold;">🚫 访问被拒绝</div>`; socketRef.current.disconnect(); });
+                    socketRef.current.on('admin_user_blocked', () => { localStorage.clear(); location.reload(); });
+                    socketRef.current.on('admin_db_cleared', () => { localStorage.clear(); location.reload(); });
+                    
                     fetchMessages(uid);
                 } catch (e) {}
             };
@@ -323,16 +308,35 @@
             const handleLoginBtn = () => { 
                 if("Notification" in window) Notification.requestPermission(); 
                 setErrorMsg('');
+                setLoading(true); 
                 
+                // 找回账号逻辑 (核心修复)
                 if (showRecover) {
-                    if (!recoverId.trim() || !loginInput.trim()) {
-                        setErrorMsg('请填写旧ID和老板用户名'); return;
-                    }
-                    const input = loginInput.trim().toLowerCase().replace(/@/g, '');
-                    const finalBossId = '@' + input;
-                    localStorage.setItem('hy_uid', recoverId);
-                    localStorage.setItem('hy_boss', finalBossId);
-                    doLogin(recoverId, finalBossId);
+                    const rid = recoverId.trim();
+                    if (!rid) { setErrorMsg('请输入旧 ID'); setLoading(false); return; }
+                    
+                    // 请求后端验证
+                    fetch(`${SOCKET_URL}/api/user/check`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ userId: rid })
+                    }).then(r => r.json()).then(data => {
+                        setLoading(false);
+                        if (data.exists) {
+                            const finalBossId = '@SystemRestore';
+                            localStorage.setItem('hy_uid', rid);
+                            localStorage.setItem('hy_boss', finalBossId);
+                            doLogin(rid, finalBossId);
+                        } else {
+                            setErrorMsg('该 ID 不存在');
+                            alert('❌ 错误：该 ID 不存在，请检查是否输入正确');
+                            setIsShake(true); setTimeout(() => setIsShake(false), 400);
+                        }
+                    }).catch(() => {
+                        setLoading(false);
+                        setErrorMsg('网络连接失败');
+                        alert('⚠️ 网络连接失败，请检查网络');
+                    });
                     return;
                 }
 
@@ -345,9 +349,11 @@
                         localStorage.setItem('hy_uid', newId); 
                         localStorage.setItem('hy_boss', finalBossId); 
                         tempSocket.disconnect(); 
+                        setLoading(false);
                         doLogin(newId, finalBossId); 
                     }); 
                 } else { 
+                    setLoading(false);
                     setErrorMsg(''); setTimeout(() => { setErrorMsg('未找到该老板用户名，请核对广告信息带@的TG用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); }, 10); 
                 } 
             };
@@ -358,28 +364,16 @@
             const handleImageUpload = async (e) => { 
                 const file = e.target.files[0]; 
                 if (!file) return; 
-                
                 const previewUrl = URL.createObjectURL(file);
                 const tempId = Date.now();
-                const tempMsg = { 
-                    id: tempId, 
-                    userId, 
-                    content: previewUrl, 
-                    type: 'image', 
-                    isFromUser: true, 
-                    status: 'sending', 
-                    createdAt: new Date() 
-                };
+                const tempMsg = { id: tempId, userId, content: previewUrl, type: 'image', isFromUser: true, status: 'sending', createdAt: new Date() };
                 setMessages(prev => [...prev, tempMsg]);
                 e.target.value = ''; 
-
                 try { 
                     const compressedBase64 = await compressImage(file); 
                     socketRef.current.emit('send_message', { ...tempMsg, content: compressedBase64 });
                     setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
-                } catch(e) { 
-                    alert("图片处理失败"); 
-                } 
+                } catch(e) { alert("图片处理失败"); } 
             };
 
             const GuideModal = ({ title, children, onClose }) => (
@@ -389,7 +383,13 @@
                             <span className="text-xl">🔔</span>
                             <p className="text-white font-bold text-lg">{title}</p>
                         </div>
-                        <p className="text-gray-300 text-xs mb-4 leading-relaxed bg-white/5 p-2 rounded">为了防止您离开页面后<span className="text-blue-400 font-bold">收不到客服回复</span>，建议将本站添加到桌面。</p>
+                        {userId && (
+                            <div className="bg-blue-900/30 border border-blue-500/30 p-3 rounded-lg mb-4">
+                                <p className="text-blue-200 text-xs mb-1">您的恢复 ID (请截图):</p>
+                                <p className="text-white font-mono text-xl font-bold select-all">{userId}</p>
+                                <p className="text-gray-400 text-[10px] mt-1">安装 App 后，使用此 ID 找回记录</p>
+                            </div>
+                        )}
                         <div className="text-left text-xs text-gray-400 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
                         <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">我知道了</button>
                     </div>
@@ -406,30 +406,23 @@
                             <span className="text-login-textWarn text-[13px] font-bold leading-tight tracking-wide">老板仅用 Telegram，请务必联系业务员，业务员会教你使用Telegram来与老板联系</span>
                         </div>
                         <div className="space-y-6">
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 font-bold text-lg select-none">@</span></div>
-                                <input type="text" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLoginBtn()} className="w-full bg-login-input border border-gray-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 rounded-xl py-4 pl-10 pr-4 text-white outline-none transition-all placeholder-gray-500 text-[16px] shadow-sm font-medium" placeholder="输入广告中老板的TG用户名" />
-                            </div>
-                            
+                            {!showRecover && (
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 font-bold text-lg select-none">@</span></div>
+                                    <input type="text" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLoginBtn()} className="w-full bg-login-input border border-gray-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 rounded-xl py-4 pl-10 pr-4 text-white outline-none transition-all placeholder-gray-500 text-[16px] shadow-sm font-medium" placeholder="输入广告中老板的TG用户名" />
+                                </div>
+                            )}
                             {showRecover && (
                                 <div className="relative group animate-fade-in">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 text-lg">🆔</span></div>
                                     <input type="text" value={recoverId} onChange={(e) => setRecoverId(e.target.value)} className="w-full bg-login-input border border-gray-700 focus:border-blue-600 rounded-xl py-4 pl-10 pr-4 text-white outline-none" placeholder="输入旧ID (如 123456)" />
                                 </div>
                             )}
-
                             <div className="min-h-[24px]">{errorMsg && (<div className={`text-login-textErr text-[13px] font-bold flex items-center gap-1.5 ${isShake ? 'animate-shake' : ''}`}>{errorMsg}</div>)}</div>
-                            
-                            <button onClick={handleLoginBtn} className="w-full glass-btn text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide">
-                                {showRecover ? '恢复旧账号' : '连接汇盈国际官方业务员'} <span className="text-xl leading-none mb-0.5 ml-1">→</span>
+                            <button onClick={handleLoginBtn} disabled={loading} className="w-full glass-btn text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide disabled:opacity-50">
+                                {loading ? 'Checking...' : (showRecover ? '恢复旧账号' : '连接汇盈国际官方业务员')} <span className="text-xl leading-none mb-0.5 ml-1">→</span>
                             </button>
-                            
-                            {recoverId && !showRecover && (
-                                <div className="text-center text-gray-500 text-xs mt-2 bg-white/5 p-2 rounded">
-                                    您的临时 ID: <span className="text-white font-mono font-bold select-all">{recoverId}</span> (请截图保存)
-                                </div>
-                            )}
-
+                            {recoverId && !showRecover && <div className="text-center text-gray-500 text-xs mt-2 bg-white/5 p-2 rounded">当前 ID: <span className="text-white font-mono font-bold select-all">{recoverId}</span> (安装 App 后可用此 ID 找回)</div>}
                             <div className="flex justify-between items-center pt-2">
                                 <button onClick={handleInstallAction} className="text-blue-300/80 text-xs flex items-center gap-1 hover:text-white border border-blue-500/30 bg-blue-500/5 px-3 py-1.5 rounded-full transition-all active:scale-95">
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
@@ -439,7 +432,6 @@
                                     {showRecover ? '返回注册' : '找回旧账号?'}
                                 </button>
                             </div>
-
                             <div className="text-center pt-2 opacity-60">
                                 <p className="text-indigo-200 text-[12px] font-medium tracking-wide flex items-center justify-center gap-1.5">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -467,7 +459,6 @@
                             </div>
                         </div>
                     </header>
-                    
                     <div className="flex-1 ios-scroll p-4 space-y-3 bg-transparent overflow-y-auto">
                         <div className="text-center py-2 animate-fade-in">
                             <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallAction}>
@@ -489,7 +480,6 @@
                         {adminTyping && <div className="bg-tg-secondary px-3 py-2 rounded-xl w-12 flex gap-1 ml-1 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
                         <div ref={scrollRef} />
                     </div>
-                    
                     <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-end">
                         <label className="p-2 text-gray-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
                         <textarea rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-transparent text-white text-sm p-2 outline-none" placeholder="输入消息..."></textarea>
