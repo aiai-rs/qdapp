@@ -2,343 +2,629 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    
     <meta name="theme-color" content="#0f1621">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    
     <title>汇盈国际官方客服</title>
+    
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://cdn.socket.io">
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="apple-touch-startup-image" href="/icon-512.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-
+    
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { tg: { bg: "#0f1621", header: "#17212b", input: "#0e1621", blue: "#2b5278", secondary: "#182533", accent: "#0088cc" } },
-                    animation: { 'slide-up': 'slideUp 0.3s ease-out' },
-                    keyframes: { slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } } }
+                    colors: { 
+                        tg: { bg: "#0f1621", header: "#17212b", input: "#0e1621", blue: "#2b5278", secondary: "#182533", accent: "#0088cc", danger: "#ff5252", warning: "#fb8c00" },
+                        login: { bg: "#0b1016", card: "#161d27", input: "#161e29", textMain: "#ffffff", textSub: "#3b82f6", textWarn: "#ef4444" }
+                    },
+                    animation: { 
+                        'slide-up': 'slideUp 0.3s ease-out forwards', 
+                        'slide-down-toast': 'slideDownToast 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards',
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite', 
+                        'fade-in': 'fadeIn 0.3s ease-out' 
+                    },
+                    keyframes: { 
+                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        slideDownToast: { '0%': { transform: 'translateY(-150%)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }
+                    }
                 }
             }
         }
     </script>
     <style>
-        /* iOS 安全区域适配 */
-        :root {
-            --sat: env(safe-area-inset-top);
-            --sab: env(safe-area-inset-bottom);
+        /* 修复2：解决 iOS 白屏和背景问题 */
+        #app-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://web.telegram.org/img/bg_0.png');
+            background-repeat: repeat;
+            z-index: 0; pointer-events: none;
         }
-        body { background-color: #0f1621; overflow: hidden; overscroll-behavior: none; }
-        /* 这里的 height: 100dvh 是为了解决 iOS Safari 地址栏变化导致的高度跳动 */
-        #root { height: 100dvh; display: flex; flex-direction: column; }
+        html { background-color: #0f1621; }
+        body { 
+            background-color: transparent; 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; overscroll-behavior: none; 
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            /* 关键：底部安全区 */
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        :root { --app-height: 100dvh; }
+        #root { 
+            width: 100%; height: var(--app-height); 
+            display: flex; flex-direction: column; position: relative; 
+            z-index: 1; 
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .ios-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
         
-        /* 适配类 */
-        .pt-safe { padding-top: var(--sat); }
-        .pb-safe { padding-bottom: var(--sab); }
+        /* 修复3：新增安全区适配类，不破坏原有 flex */
+        .pt-safe { padding-top: env(safe-area-inset-top); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         
-        .ios-scroll { -webkit-overflow-scrolling: touch; }
-        
-        /* 图片预览模态框动画 */
-        .preview-enter { opacity: 0; transform: scale(0.95); }
-        .preview-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s; }
+        .glass-btn { background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
+        .glass-btn:active { transform: scale(0.98); }
+        #splash-screen { position: fixed; inset: 0; background: #0f1621; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
     </style>
 </head>
-<body>
+<body oncontextmenu="return false">
+    <div id="app-background"></div>
+    <div id="splash-screen">
+        <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-2xl animate-pulse-fast mb-4">
+            <span class="text-white font-black text-2xl">HY</span>
+        </div>
+        <h2 class="text-white font-bold text-lg tracking-widest">汇盈国际加密专线</h2>
+        <p class="text-gray-500 text-xs mt-2">正在建立安全连接...</p>
+    </div>
+
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        const SOCKET_URL = "https://lt-1li6.onrender.com"; // 你的后端地址
+        const { useState, useEffect, useRef, useLayoutEffect } = React;
+        const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
-        function App() {
-            // 状态管理
-            const [step, setStep] = useState('loading'); // loading, login, chat
-            const [userId, setUserId] = useState('');
-            const [bossId, setBossId] = useState('');
-            const [inputVal, setInputVal] = useState(''); // 登录输入
-            const [chatInput, setChatInput] = useState(''); // 聊天输入
-            const [messages, setMessages] = useState([]);
-            const [previewImg, setPreviewImg] = useState(null); // 图片大图预览
-            const [errorMsg, setErrorMsg] = useState('');
-            
-            const socketRef = useRef(null);
-            const messagesEndRef = useRef(null);
-
-            // 初始化检查本地缓存
-            useEffect(() => {
-                const cachedUid = localStorage.getItem('hy_uid');
-                const cachedBoss = localStorage.getItem('hy_boss');
-                if (cachedUid && cachedBoss) {
-                    doLogin(cachedUid, cachedBoss);
-                } else {
-                    setStep('login');
-                }
-            }, []);
-
-            // 滚动到底部
-            const scrollToBottom = () => {
-                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            };
-            useEffect(scrollToBottom, [messages]);
-
-            // === 核心逻辑：登录/找回 ===
-            const handleLogin = async () => {
-                const val = inputVal.trim();
-                if (!val) return;
-                
-                // 判断是找回ID（纯数字）还是新注册（@开头或字母）
-                const isRecovery = /^\d+$/.test(val); // 假设ID是纯数字，或者你根据长度判断
-
-                if (isRecovery) {
-                    // [新增] 找回模式：必须去后端验证 ID 是否存在
-                    try {
-                        const res = await fetch(`${SOCKET_URL}/api/check-user`, {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ userId: val })
-                        });
-                        const data = await res.json();
-                        
-                        if (data.exists) {
-                            localStorage.setItem('hy_uid', val);
-                            doLogin(val, '未知(恢复)');
-                        } else {
-                            setErrorMsg("❌ 错误：该 ID 不存在或已被删除");
-                        }
-                    } catch (e) {
-                        setErrorMsg("网络连接失败");
-                    }
-                } else {
-                    // 新注册模式 (输入老板ID)
-                    const bossName = val.replace('@', '').toLowerCase();
-                    const validBosses = ['rrii8', 'iibb8']; // 允许的老板列表
+        // 修复4：重写 useAppHeight，完美解决 iOS 键盘顶起和输入框被遮挡
+        const useAppHeight = () => {
+            useLayoutEffect(() => {
+                const updateHeight = () => {
+                    // 优先使用 visualViewport
+                    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                    document.documentElement.style.setProperty('--app-height', `${h}px`);
                     
-                    if (validBosses.includes(bossName)) {
-                        const tempSocket = io(SOCKET_URL);
-                        tempSocket.emit('request_id', (newId) => {
-                            tempSocket.disconnect();
-                            localStorage.setItem('hy_uid', newId);
-                            localStorage.setItem('hy_boss', '@' + bossName);
-                            doLogin(newId, '@' + bossName);
-                        });
-                    } else {
-                        setErrorMsg("❌ 未找到该老板，请检查用户名");
+                    // 键盘弹出时，强制滚动到底部，避免输入框被遮住
+                    if (document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'INPUT') {
+                       setTimeout(() => window.scrollTo(0, 0), 0);
                     }
-                }
-            };
-
-            // === 核心逻辑：建立连接 ===
-            const doLogin = (uid, bid) => {
-                setUserId(uid);
-                setBossId(bid);
-                setStep('chat');
-
-                // 连接 Socket
-                socketRef.current = io(SOCKET_URL, {
-                    query: { userId: uid, bossId: bid }
-                });
-
-                socketRef.current.on('connect', () => {
-                    console.log("已连接");
-                });
-
-                // [新增] 监听强制下线（被删号或清空）
-                socketRef.current.on('force_disconnect', () => {
-                    localStorage.clear();
-                    alert("🚫 您的会话已结束（记录被清除或账号被封禁）");
-                    window.location.reload();
-                });
-
-                // 接收消息
-                socketRef.current.on('receive_message', (msg) => {
-                    setMessages(prev => {
-                        // 如果是自己发的图片（已经本地预览了），替换掉那个 temp 消息
-                        if (msg.tempId) {
-                            return prev.map(m => m.tempId === msg.tempId ? msg : m);
-                        }
-                        return [...prev, msg];
-                    });
-                });
-
-                // 加载历史记录
-                fetch(`${SOCKET_URL}/api/history/${uid}`)
-                    .then(r => r.json())
-                    .then(data => setMessages(data));
-            };
-
-            // === 核心逻辑：发送消息 ===
-            const sendMessage = (type, content, tempId = null) => {
-                const msgData = {
-                    userId,
-                    bossId,
-                    content,
-                    type,
-                    tempId: tempId || Date.now(), // 用于乐观更新
-                    isFromUser: true,
-                    createdAt: new Date()
                 };
-                socketRef.current.emit('send_message', msgData);
-            };
-
-            const handleSendText = () => {
-                if (!chatInput.trim()) return;
-                // 乐观更新：先显示在界面上
-                const tempMsg = {
-                    userId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sending'
-                };
-                setMessages(prev => [...prev, tempMsg]);
-                sendMessage('text', chatInput);
-                setChatInput('');
-            };
-
-            // === [新增] 图片压缩与秒显逻辑 ===
-            const handleImageUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                // 1. 本地预览 (秒显)
-                const localUrl = URL.createObjectURL(file);
-                const tempId = Date.now();
                 
-                // 立即添加到消息列表，不用等服务器
-                const tempMsg = {
-                    userId, 
-                    content: localUrl, 
-                    type: 'image', 
-                    isFromUser: true, 
-                    createdAt: new Date(), 
-                    tempId: tempId, // 标记为临时消息
-                    status: 'uploading' // 可以用来显示转圈圈
+                window.visualViewport?.addEventListener('resize', updateHeight);
+                window.visualViewport?.addEventListener('scroll', updateHeight);
+                window.addEventListener('resize', updateHeight);
+                updateHeight();
+                
+                return () => {
+                    window.visualViewport?.removeEventListener('resize', updateHeight);
+                    window.visualViewport?.removeEventListener('scroll', updateHeight);
+                    window.removeEventListener('resize', updateHeight);
                 };
-                setMessages(prev => [...prev, tempMsg]);
+            }, []);
+        };
 
-                // 2. 压缩图片 (解决发送慢的问题)
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+            return outputArray;
+        }
+
+        // 修复5：图片压缩改为异步 + 限制尺寸 (解决发图卡顿)
+        const compressImage = (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader(); reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image(); img.src = e.target.result;
                     img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        // 限制最大宽度 800px，大幅减小体积
-                        const scale = 800 / img.width;
-                        const w = img.width > 800 ? 800 : img.width;
-                        const h = img.width > 800 ? img.height * scale : img.height;
-                        
-                        canvas.width = w;
-                        canvas.height = h;
-                        ctx.drawImage(img, 0, 0, w, h);
-                        
-                        // 压缩为 0.7 质量的 JPEG
-                        const base64 = canvas.toDataURL('image/jpeg', 0.7);
-                        
-                        // 3. 发送给服务器
-                        sendMessage('image', base64, tempId);
+                        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+                        // 限制最大宽度 1024，质量 0.6，大幅提升速度
+                        let w = img.width, h = img.height; const maxSide = 1024; 
+                        if (Math.max(w, h) > maxSide) { const scale = maxSide / Math.max(w, h); w *= scale; h *= scale; }
+                        canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', 0.6));
                     };
                 };
+            });
+        };
+
+        const IconStatus = ({ status }) => {
+            if (status === 'sending' || status === 'uploading') return <span className="text-gray-400 text-[10px] ml-1 animate-spin">⟳</span>;
+            if (status === 'read') return <span className="text-green-400 text-[10px] ml-1 font-bold">✓✓</span>;
+            return <span className="text-gray-400 text-[10px] ml-1">✓</span>;
+        };
+        
+        const getWorkStatus = () => {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const cambodiaTime = new Date(utc + (3600000 * 7));
+            const hour = cambodiaTime.getHours();
+            const isWorking = hour >= 13 && hour < 23; 
+            return { isWorking, text: isWorking ? '当前业务员繁忙' : '休息中 (请留言)', color: isWorking ? 'text-green-400' : 'text-tg-warning' };
+        };
+
+        // 顶部通知 (UI 未变，增加了 pt-safe 适配刘海)
+        const TopToast = ({ msg, show }) => {
+            if (!show) return null;
+            return (
+                <div className="fixed top-0 left-0 right-0 pt-safe z-[9999] pointer-events-none animate-slide-down-toast">
+                    <div className="mx-4 mt-4 bg-black/85 backdrop-blur-md border border-white/10 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-green-500 to-green-600 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold">HY</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-gray-200">新消息</p>
+                            <p className="text-xs text-white truncate">{msg}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        function App() {
+            useAppHeight(); 
+
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            
+            const [step, setStep] = useState('loading'); 
+            const [loginInput, setLoginInput] = useState('');
+            const [recoverId, setRecoverId] = useState('');
+            const [showRecover, setShowRecover] = useState(false);
+            const [loading, setLoading] = useState(false);
+            
+            const [userId, setUserId] = useState('');
+            const [bossId, setBossId] = useState('');
+            const [messages, setMessages] = useState([]);
+            const [chatInput, setChatInput] = useState('');
+            const [errorMsg, setErrorMsg] = useState('');
+            const [isShake, setIsShake] = useState(false);
+            
+            const [workStatus, setWorkStatus] = useState(getWorkStatus());
+            const [previewImg, setPreviewImg] = useState(null);
+            const [adminTyping, setAdminTyping] = useState(false);
+            const [showTutorial, setShowTutorial] = useState(false);
+            
+            const [toast, setToast] = useState({ show: false, msg: '' });
+            const toastTimer = useRef(null);
+            
+            const [installPrompt, setInstallPrompt] = useState(null); 
+            const [canInstall, setCanInstall] = useState(false);
+            const [showIosGuide, setShowIosGuide] = useState(false);
+            const [showAndroidGuide, setShowAndroidGuide] = useState(false);
+            
+            const socketRef = useRef(null);
+            const scrollRef = useRef(null);
+            const typingTimeoutRef = useRef(null);
+
+            useEffect(() => {
+                setTimeout(() => {
+                    const splash = document.getElementById('splash-screen');
+                    if(splash) { splash.style.opacity = '0'; setTimeout(()=>splash.remove(), 500); }
+                }, 800); 
+
+                if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+                window.addEventListener('beforeinstallprompt', (e) => { 
+                    e.preventDefault(); 
+                    setInstallPrompt(e); 
+                    setCanInstall(true); 
+                });
+                
+                const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
+                
+                const savedId = localStorage.getItem('hy_uid');
+                if (savedId && !userId) setRecoverId(savedId); 
+                
+                return () => clearInterval(timer);
+            }, []);
+
+            // 修复6：安装时强制弹窗显示 ID，解决 iOS 本地存储隔离导致 ID 丢失问题
+            const handleInstallAction = () => {
+                if (userId) {
+                    // 这里的 confirm 换成了更醒目的 alert，或者你可以保持 confirm
+                    alert(`⚠️ 【重要】安装必读\n\n您的恢复ID是：${userId}\n\n请务必截图！安装 APP 后如果需要重新登录，请输入此 ID。`);
+                }
+
+                const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+                if (isIos) {
+                    setShowIosGuide(true);
+                } else if (canInstall && installPrompt) {
+                    installPrompt.prompt();
+                    installPrompt.userChoice.then((res) => {
+                        if (res.outcome === 'accepted') setCanInstall(false);
+                        setInstallPrompt(null);
+                    });
+                } else {
+                    setShowAndroidGuide(true);
+                }
             };
 
-            // === 界面渲染 ===
-            if (step === 'loading') return <div className="h-full bg-tg-bg flex items-center justify-center text-white">加载中...</div>;
+            const triggerToast = (content) => {
+                const txt = content.startsWith('data:') || content.startsWith('blob:') ? '[图片]' : content;
+                setToast({ show: true, msg: txt });
+                if (toastTimer.current) clearTimeout(toastTimer.current);
+                toastTimer.current = setTimeout(() => setToast({ show: false, msg: '' }), 3000);
+            };
+
+            const registerPush = async (uid) => {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                if (Notification.permission === 'default') { await Notification.requestPermission(); }
+                try {
+                    const reg = await navigator.serviceWorker.ready;
+                    let sub = await reg.pushManager.getSubscription();
+                    if (!sub) {
+                        const res = await fetch(`${SOCKET_URL}/api/vapid-key`);
+                        const { publicKey } = await res.json();
+                        if(!publicKey) return;
+                        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+                    }
+                    await fetch(`${SOCKET_URL}/api/subscribe`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: uid, subscription: sub }) });
+                } catch (e) {}
+            };
+
+            useEffect(() => {
+                const unlockAudio = () => {
+                    const a = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABBlYXRhAgAAAAEA"); a.play().catch(()=>{});
+                };
+                document.body.addEventListener('click', unlockAudio, { once: true });
+                document.body.addEventListener('touchstart', unlockAudio, { once: true });
+            }, [userId]);
+
+            const flashTitle = (start) => {
+                if (start) { document.title = "【🔔 新消息】汇盈国际"; } else { document.title = "汇盈国际官方客服"; }
+            };
+
+            useEffect(() => {
+                const handleVisibility = () => {
+                    if (document.visibilityState === 'visible') {
+                        flashTitle(false);
+                        const u = localStorage.getItem('hy_uid');
+                        if(socketRef.current?.connected === false) socketRef.current.connect();
+                        if(u) { fetchMessages(u); registerPush(u); if(socketRef.current) socketRef.current.emit('mark_read', { userId: u, isAdmin: false }); }
+                    }
+                };
+                document.addEventListener('visibilitychange', handleVisibility);
+                const u = localStorage.getItem('hy_uid');
+                const b = localStorage.getItem('hy_boss');
+                if(u && b) doLogin(u, b); else setStep('login');
+                return () => document.removeEventListener('visibilitychange', handleVisibility);
+            }, []);
+
+            useEffect(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, adminTyping]);
+
+            const fetchMessages = (uid) => { fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); }); };
+            
+            const doLogin = (uid, bid) => { 
+                if(socketRef.current) socketRef.current.disconnect(); 
+                setUserId(uid); setBossId(bid); setStep('chat'); 
+                initSocket(uid, bid); 
+                registerPush(uid); 
+            };
+
+            const initSocket = (uid, bid) => {
+                try {
+                    // 修复7：连接时带上 query，方便后端识别
+                    socketRef.current = io(SOCKET_URL, { query: { userId: uid, bossId: bid } });
+                    
+                    socketRef.current.on('connect', () => {
+                         // 兼容旧版逻辑
+                         socketRef.current.emit('join', { userId: uid, bossId: bid });
+                    });
+                    
+                    socketRef.current.on('receive_message', (msg) => {
+                        setMessages(prev => { 
+                            // 优化：处理乐观更新的图片，防止闪烁
+                            if (msg.tempId) {
+                                return prev.map(m => m.tempId === msg.tempId ? { ...msg, status: 'sent' } : m);
+                            }
+                            if (prev.some(m => m.id === msg.id)) return prev;
+                            return [...prev, msg]; 
+                        });
+                        
+                        if(!msg.isFromUser) { 
+                            triggerToast(msg.content); 
+                            try { const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200]); } catch(e){} 
+                            if(document.hidden) flashTitle(true);
+                            setAdminTyping(false);
+                            if (document.visibilityState === 'visible') socketRef.current.emit('mark_read', { userId: uid, isAdmin: false }); 
+                        }
+                    });
+                    
+                    socketRef.current.on('message_deleted', ({ messageId }) => setMessages(prev => prev.filter(m => m.id !== messageId)));
+                    
+                    socketRef.current.on('display_typing', ({ isTyping }) => { 
+                        setAdminTyping(isTyping); 
+                        if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                        if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000);
+                    });
+
+                    socketRef.current.on('messages_read_update', () => setMessages(prev => prev.map(m => m.isFromUser ? { ...m, status: 'read' } : m)));
+                    
+                    socketRef.current.on('force_logout', () => { 
+                        localStorage.clear(); 
+                        alert("⚠️ 您的会话已结束（账号已重置）");
+                        location.reload(); 
+                    });
+                    
+                    // 修复8：增加强制下线处理
+                    socketRef.current.on('force_disconnect', () => {
+                         localStorage.clear();
+                         alert("🚫 您的连接已断开");
+                         window.location.reload();
+                    });
+
+                    socketRef.current.on('force_logout_blocked', () => { 
+                        localStorage.clear(); 
+                        document.body.innerHTML = `<div style="display:flex;height:100vh;justify-content:center;align-items:center;background:#0f1621;color:#ff5252;font-weight:bold;">🚫 访问被拒绝</div>`; 
+                        socketRef.current.disconnect(); 
+                    });
+                    
+                    socketRef.current.on('admin_user_blocked', () => { localStorage.clear(); location.reload(); });
+                    socketRef.current.on('admin_db_cleared', () => { localStorage.clear(); location.reload(); });
+
+                    fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); });
+                } catch (e) {}
+            };
+
+            const handleLoginBtn = () => { 
+                if("Notification" in window) Notification.requestPermission();
+                setErrorMsg(''); setLoading(true);
+                
+                if (showRecover) {
+                    const rid = recoverId.trim();
+                    if (!rid) { setErrorMsg('请输入旧 ID'); setLoading(false); return; }
+                    
+                    // 修复9：找回账号时，真正去后端检查 ID 是否存在
+                    fetch(`${SOCKET_URL}/api/check-user`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ userId: rid })
+                    }).then(r => r.json()).then(data => {
+                        setLoading(false);
+                        if (data.exists) {
+                            localStorage.setItem('hy_uid', rid);
+                            doLogin(rid, '@SystemRestore');
+                        } else { setErrorMsg('❌ ID 不存在或被封禁'); }
+                    }).catch(() => {
+                        setLoading(false);
+                        setErrorMsg('网络连接失败');
+                    });
+                    return;
+                }
+
+                const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
+                const validBosses = ['rrii8', 'iibb8']; 
+                if (validBosses.includes(input)) { 
+                    const tempSocket = io(SOCKET_URL); 
+                    tempSocket.emit('request_id', '@'+input, (newId) => { 
+                        localStorage.setItem('hy_uid', newId); 
+                        tempSocket.disconnect(); setLoading(false); doLogin(newId, '@'+input); 
+                    }); 
+                } else { 
+                    setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400);
+                } 
+            };
+            
+            const handleTyping = (e) => { 
+                setChatInput(e.target.value); 
+                if(socketRef.current) socketRef.current.emit('typing', { targetId: 'admin', isTyping: true });
+            };
+
+            const handleSend = () => { 
+                if (!chatInput.trim()) return; 
+                // 修复10：文本消息也支持乐观更新（不用等转圈，直接上屏）
+                const tempMsg = { userId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sending', tempId: Date.now() }; 
+                setMessages(prev => [...prev, tempMsg]); 
+                socketRef.current.emit('send_message', tempMsg); 
+                socketRef.current.emit('typing', { targetId: 'admin', isTyping: false });
+                setChatInput(''); 
+            };
+            
+            // 修复11：图片发送逻辑重写：本地秒显 + 后台压缩上传
+            const handleImageUpload = async (e) => { 
+                const file = e.target.files[0]; 
+                if (!file) return; 
+                
+                // 1. 本地秒显
+                const previewUrl = URL.createObjectURL(file);
+                const tempId = Date.now();
+                const tempMsg = { 
+                    id: tempId, 
+                    userId, 
+                    content: previewUrl, 
+                    type: 'image', 
+                    isFromUser: true, 
+                    status: 'uploading', // 转圈状态
+                    createdAt: new Date(),
+                    tempId: tempId
+                };
+                setMessages(prev => [...prev, tempMsg]);
+                e.target.value = ''; 
+                
+                try { 
+                    // 2. 异步压缩
+                    const base64 = await compressImage(file);
+                    // 3. 压缩完再发
+                    socketRef.current.emit('send_message', { ...tempMsg, content: base64 });
+                } catch(e) { alert("图片处理失败"); } 
+            };
+
+            useEffect(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, adminTyping]);
+
+            const GuideModal = ({ title, children, onClose }) => (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center pb-8" onClick={onClose}>
+                    <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-5 rounded-2xl max-w-sm w-full mx-4 animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                            <span className="text-xl">🔔</span>
+                            <p className="text-white font-bold text-lg">{title}</p>
+                        </div>
+                        {userId && (
+                            <div className="bg-blue-900/30 border border-blue-500/30 p-3 rounded-lg mb-4">
+                                <p className="text-blue-200 text-xs mb-1">您的恢复 ID (请截图):</p>
+                                <p className="text-white font-mono text-xl font-bold select-all">{userId}</p>
+                                <p className="text-gray-400 text-[10px] mt-1">安装 App 后，使用此 ID 找回记录</p>
+                            </div>
+                        )}
+                        <div className="text-left text-xs text-gray-400 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
+                        <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">我知道了</button>
+                    </div>
+                </div>
+            );
 
             if (step === 'login') return (
-                <div className="h-full bg-tg-bg flex flex-col items-center justify-center px-6">
-                    <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-6 shadow-lg">HY</div>
-                    <h2 className="text-white text-2xl font-bold mb-2">汇盈国际客服</h2>
-                    <p className="text-gray-400 text-sm mb-8 text-center">请输入 <span className="text-blue-400">老板TG号</span> 或 <span className="text-green-400">旧账号ID</span></p>
-                    
-                    <input 
-                        type="text" 
-                        value={inputVal}
-                        onChange={e => setInputVal(e.target.value)}
-                        className="w-full bg-tg-input text-white border border-gray-700 rounded-xl p-4 mb-4 focus:border-blue-500 outline-none transition"
-                        placeholder="例如: @boss888 或 123456"
-                    />
-                    {errorMsg && <p className="text-red-500 text-sm mb-4">{errorMsg}</p>}
-                    
-                    <button onClick={handleLogin} className="w-full bg-blue-600 active:bg-blue-700 text-white font-bold py-4 rounded-xl transition shadow-lg">
-                        开始咨询
-                    </button>
+                <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg" style={{height:'var(--app-height)'}}>
+                    <div className="z-10 w-full max-w-[340px] mx-auto">
+                        <h1 className="text-[34px] font-black text-white mb-2">汇盈国际官方客服</h1>
+                        <p className="text-gray-400 text-[15px] mb-8 font-medium">请输入广告中老板的 <span className="text-login-textSub font-bold">Telegram 用户名</span></p>
+                        <div className="mb-6 flex items-start gap-2.5">
+                            <span className="text-yellow-500 text-sm mt-0.5">⚠️</span>
+                            <span className="text-login-textWarn text-[13px] font-bold leading-tight tracking-wide">老板仅用 Telegram，请务必联系业务员，业务员会教你使用Telegram来与老板联系</span>
+                        </div>
+                        <div className="space-y-6">
+                            {!showRecover && (
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 font-bold text-lg select-none">@</span></div>
+                                    <input type="text" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLoginBtn()} className="w-full bg-login-input border border-gray-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 rounded-xl py-4 pl-10 pr-4 text-white outline-none transition-all placeholder-gray-500 text-[16px] shadow-sm font-medium" placeholder="输入广告中老板的TG用户名" />
+                                </div>
+                            )}
+                            {showRecover && (
+                                <div className="relative group animate-fade-in">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 text-lg">🆔</span></div>
+                                    <input type="text" value={recoverId} onChange={(e) => setRecoverId(e.target.value)} className="w-full bg-login-input border border-gray-700 focus:border-blue-600 rounded-xl py-4 pl-10 pr-4 text-white outline-none" placeholder="输入旧ID (网页的app按键里有显示)" />
+                                </div>
+                            )}
+                            <div className="min-h-[24px]">{errorMsg && (<div className={`text-login-textErr text-[13px] font-bold flex items-center gap-1.5 ${isShake ? 'animate-shake' : ''}`}>{errorMsg}</div>)}</div>
+                            <button onClick={handleLoginBtn} disabled={loading} className="w-full glass-btn text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide disabled:opacity-50">
+                                {loading ? 'Checking...' : (showRecover ? '恢复旧账号' : '连接汇盈国际官方业务员')} <span className="text-xl leading-none mb-0.5 ml-1">→</span>
+                            </button>
+                            {recoverId && !showRecover && <div className="text-center text-gray-500 text-xs mt-2 bg-white/5 p-2 rounded">当前 ID: <span className="text-white font-mono font-bold select-all">{recoverId}</span> (安装 App 后可用此 ID 找回)</div>}
+                            <div className="flex justify-between items-center pt-2">
+                                <button onClick={handleInstallAction} className="text-blue-300/80 text-xs flex items-center gap-1 hover:text-white border border-blue-500/30 bg-blue-500/5 px-3 py-1.5 rounded-full transition-all active:scale-95">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                    {canInstall ? "📲 一键安装APP" : "📲 开启离线通知"}
+                                </button>
+                                {!isAndroid && (
+                                    <button onClick={() => setShowRecover(!showRecover)} className="text-gray-500 text-xs hover:text-gray-300 underline decoration-dotted">
+                                        {showRecover ? '返回注册' : '找回旧账号?'}
+                                    </button>
+                                )}
+                            </div>
+                            <div className="text-center pt-2 opacity-60">
+                                <p className="text-indigo-200 text-[12px] font-medium tracking-wide flex items-center justify-center gap-1.5">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    业务员上班时间: 13:00 - 23:00
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
+                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
 
             return (
-                <div className="h-full bg-tg-bg flex flex-col relative">
-                    {/* Header: 增加 pt-safe 适配刘海 */}
-                    <header className="bg-tg-header pt-safe px-4 py-3 flex justify-between items-center border-b border-gray-800 shrink-0 z-10">
+                <div className="flex flex-col bg-tg-bg max-w-md mx-auto shadow-2xl relative w-full" style={{height:'var(--app-height)'}}>
+                    <TopToast msg={toast.msg} show={toast.show} />
+                    
+                    {/* Header: 修复 pt-safe 和 min-h */}
+                    <header className="w-full bg-tg-header text-white pt-safe flex-shrink-0 z-50 border-b border-white/5 min-h-[56px] py-2 flex items-center justify-between px-4 box-content">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">HY</div>
+                            <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
                             <div>
-                                <div className="text-white font-bold text-sm">汇盈国际客服</div>
-                                <div className="text-green-400 text-xs">● 在线 ID: {userId}</div>
+                                <h3 className="font-bold text-sm">汇盈国际客服</h3>
+                                <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
                             </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>
+                            <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
                         </div>
                     </header>
 
-                    {/* Chat Area: 增加 pb-32 给底部留空间 */}
-                    <div className="flex-1 overflow-y-auto ios-scroll p-4 pb-4 space-y-4">
+                    <div className="flex-1 ios-scroll p-4 space-y-3 bg-transparent overflow-y-auto">
+                        <div className="text-center py-2 animate-fade-in">
+                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallAction}>
+                                🔔 点此开启「离线通知」，避免收不到回复 >
+                            </p>
+                        </div>
+                        {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-4">正在建立加密连接...</div>}
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                                {!msg.isFromUser && <div className="w-8 h-8 bg-blue-600 rounded-full flex-shrink-0 mr-2 flex items-center justify-center text-xs text-white">HY</div>}
-                                <div className={`max-w-[75%] p-3 rounded-2xl text-sm break-words ${msg.isFromUser ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
-                                    {msg.type === 'image' ? (
+                                <div className={`px-3 py-2.5 rounded-2xl text-sm max-w-[260px] break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
+                                    {(msg.type === 'image' || msg.content.startsWith('data:') || msg.content.startsWith('blob:')) ? 
                                         <div className="relative">
-                                            <img 
-                                                src={msg.content} 
-                                                className={`rounded-lg max-h-48 object-cover cursor-pointer ${msg.status === 'uploading' ? 'opacity-70' : ''}`} 
-                                                onClick={() => setPreviewImg(msg.content)}
-                                            />
-                                            {msg.status === 'uploading' && <div className="absolute inset-0 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div></div>}
+                                            <img src={msg.content} className={`max-w-[200px] rounded-lg ${msg.status === 'uploading' ? 'opacity-50' : ''}`} onClick={() => setPreviewImg(msg.content)} /> 
+                                            {msg.status === 'uploading' && <div className="absolute inset-0 flex items-center justify-center"><span className="text-white text-xs animate-pulse">上传中...</span></div>}
                                         </div>
-                                    ) : (
-                                        msg.content
-                                    )}
-                                    <div className="text-[10px] text-right mt-1 opacity-70">
-                                        {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </div>
+                                        : msg.content
+                                    }
+                                    <div className="flex justify-end items-center gap-1 mt-1"><span className="text-[10px] opacity-50">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>{msg.isFromUser && <IconStatus status={msg.status} />}</div>
                                 </div>
                             </div>
                         ))}
-                        <div ref={messagesEndRef} />
+                        
+                        {adminTyping && <div className="bg-tg-secondary px-3 py-2 rounded-xl w-12 flex gap-1 ml-1 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
+                        <div ref={scrollRef} />
                     </div>
 
-                    {/* Footer: 增加 pb-safe 适配底部黑条 */}
-                    <div className="bg-tg-header border-t border-gray-800 p-3 pb-safe shrink-0 flex items-center gap-2 z-10">
-                        <label className="p-2 text-gray-400 active:text-blue-500 cursor-pointer">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                        </label>
-                        <input 
-                            type="text" 
-                            value={chatInput}
-                            onChange={e => setChatInput(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSendText()}
-                            placeholder="输入消息..." 
-                            className="flex-1 bg-tg-input text-white text-sm rounded-full py-2 px-4 border border-gray-700 focus:border-blue-500 outline-none"
-                        />
-                        <button onClick={handleSendText} className="p-2 text-blue-500 font-bold active:opacity-70">发送</button>
+                    {/* Footer: 修复 pb-safe 适配底部 */}
+                    <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-center">
+                        <label className="text-gray-400 p-2"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
+                        <textarea rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-transparent text-white text-sm p-2 outline-none" placeholder="输入消息..."></textarea>
+                        <button onClick={handleSend} className="p-2 rounded-xl text-white bg-tg-accent">发送</button>
                     </div>
-
-                    {/* [新增] 完美适配的全屏图片预览 */}
+                    
+                    {/* 修复12：图片预览全屏修复，层级提高 */}
                     {previewImg && (
-                        <div 
-                            className="fixed inset-0 z-50 bg-black bg-opacity-95 flex items-center justify-center backdrop-blur-sm"
-                            onClick={() => setPreviewImg(null)}
-                        >
-                            <div className="absolute top-safe right-4 p-4 text-white z-50 cursor-pointer text-3xl">×</div>
-                            <img src={previewImg} className="max-w-full max-h-full object-contain p-2" />
+                        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-md" onClick={() => setPreviewImg(null)}>
+                            <img src={previewImg} className="max-w-full max-h-full object-contain" />
+                            <button className="absolute top-10 right-5 text-white bg-white/20 rounded-full p-2" onClick={()=>setPreviewImg(null)}>✕</button>
                         </div>
                     )}
+                    
+                    {showTutorial && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowTutorial(false)}>
+                            <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+                                <h3 className="font-bold text-white mb-4">🚀 快速教程</h3>
+                                <p className="text-gray-300 text-sm mb-4">1. 获取美区 Apple ID（联系业务员获取）<br/>2. 下载 Shadowrocket（联系业务员获取）<br/>3. 复制链接打开（联系业务员获取）</p>
+                                <button onClick={() => setShowTutorial(false)} className="w-full bg-tg-accent text-white py-2 rounded">关闭</button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
+                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
         }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+        document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='C'))||(e.ctrlKey&&(e.key==='s'||e.key==='S'))||(e.ctrlKey&&(e.key==='u'||e.key==='U'))||(e.ctrlKey&&(e.key==='l'||e.key==='L'))){e.preventDefault();return false;}});
     </script>
 </body>
 </html>
