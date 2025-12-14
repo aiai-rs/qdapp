@@ -46,27 +46,24 @@
         }
     </script>
     <style>
-        /* 修复1 & 4: 解决白屏和背景色问题 */
         html { background-color: #0f1621; height: 100%; }
         body { 
-            background-color: #0f1621; /* 统一背景色，防止下拉露白 */
+            background-color: #0f1621;
             margin: 0; padding: 0; width: 100%; height: 100%; 
-            overflow: hidden; /* 禁止 body 滚动，只让内部滚动 */
+            overflow: hidden; 
             overscroll-behavior: none; 
             -webkit-tap-highlight-color: transparent;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            position: fixed; /* 锁死 body 防止键盘顶起整体 */
+            position: fixed; /* iOS 键盘防抖关键 */
             left: 0; top: 0; right: 0; bottom: 0;
         }
         
-        /* 修复7: 布局变量 */
         :root { --app-height: 100%; }
 
         #root { 
             width: 100%; 
             height: var(--app-height); 
             display: flex; 
-            flex-direction: column; /* 核心布局：垂直弹性盒 */
+            flex-direction: column; 
             position: relative; 
             z-index: 1; 
             background-color: #0f1621;
@@ -74,25 +71,23 @@
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* 修复2: 优化滚动体验 */
         .ios-scroll { 
             overflow-y: auto; 
             -webkit-overflow-scrolling: touch; 
             overscroll-behavior-y: contain; 
-            flex: 1; /* 占据剩余空间 */
+            flex: 1; 
         }
 
-        /* 修复1: 顶部安全区适配 */
+        /* iOS 安全区适配 */
         .pt-safe-header {
             padding-top: env(safe-area-inset-top);
             min-height: calc(env(safe-area-inset-top) + 56px);
         }
-
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        
         .glass-btn { background: linear-gradient(90deg, #2b5278 0%, #254666 100%); box-shadow: 0 4px 15px rgba(43, 82, 120, 0.3); }
         .glass-btn:active { transform: scale(0.98); }
 
-        /* 静态 Loading 样式 */
         #static-loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             display: flex; flex-direction: column; items-align: center; text-align: center;
@@ -102,7 +97,7 @@
 <body oncontextmenu="return false">
     <div id="root">
         <div id="static-loading" class="animate-pulse">
-            <div class="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 mx-auto shadow-xl">
+            <div class="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 mx-4 shadow-xl">
                 <span class="text-white font-bold text-xl">HY</span>
             </div>
             <p class="text-gray-500 text-xs">正在建立安全连接...</p>
@@ -113,17 +108,23 @@
         const { useState, useEffect, useRef, useLayoutEffect } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
-        // 修复2 & 8: 核心 Hook - 完美适配 iOS 键盘和视口高度
+        // 🔧 修复1: 针对 iOS 键盘顶起问题的核心修复
         const useAppHeight = () => {
+            const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            
             useLayoutEffect(() => {
                 const setHeight = () => {
-                    // 优先使用 visualViewport (解决键盘顶起问题)
-                    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-                    document.documentElement.style.setProperty('--app-height', `${h}px`);
-                    
-                    // 键盘弹起时，强制滚动到底部
-                    if (window.visualViewport && window.visualViewport.height < window.innerHeight) {
-                        window.scrollTo(0, 0); // 防止整体页面偏移
+                    // 如果是 iOS，必须严格依赖 visualViewport
+                    if (isIos && window.visualViewport) {
+                        const h = window.visualViewport.height;
+                        document.documentElement.style.setProperty('--app-height', `${h}px`);
+                        
+                        // 关键修复：强制滚动回顶部，防止输入框飞到天上
+                        window.scrollTo(0, 0);
+                        document.body.scrollTop = 0;
+                    } else {
+                        // 安卓保持原样，不动它
+                        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
                     }
                 };
                 
@@ -131,17 +132,22 @@
                 window.addEventListener('resize', setHeight);
                 if (window.visualViewport) {
                     window.visualViewport.addEventListener('resize', setHeight);
-                    window.visualViewport.addEventListener('scroll', setHeight); // 防止用户乱滑
+                    if (isIos) {
+                        // iOS 额外监听 scroll，强制归位
+                        window.visualViewport.addEventListener('scroll', () => {
+                            window.scrollTo(0, 0);
+                            document.body.scrollTop = 0;
+                        });
+                    }
                 }
                 
                 return () => {
                     window.removeEventListener('resize', setHeight);
                     if (window.visualViewport) {
                         window.visualViewport.removeEventListener('resize', setHeight);
-                        window.visualViewport.removeEventListener('scroll', setHeight);
                     }
                 };
-            }, []);
+            }, [isIos]);
         };
 
         function urlBase64ToUint8Array(base64String) {
@@ -204,6 +210,8 @@
 
             const isAndroid = /Android/i.test(navigator.userAgent);
             const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            // 简单判断是否在 PWA 模式下运行
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             
             const [step, setStep] = useState('loading'); 
             const [loginInput, setLoginInput] = useState('');
@@ -234,18 +242,17 @@
             const socketRef = useRef(null);
             const scrollRef = useRef(null);
             const typingTimeoutRef = useRef(null);
-            const messagesEndRef = useRef(null); // 修复2: 更好的滚动定位
+            const messagesEndRef = useRef(null);
 
             useEffect(() => {
-                // 修复3: iOS URL 自动同步逻辑
-                // 检查 URL 是否携带了 uid (iOS PWA 启动或 Safari 跳转后)
+                // 🔧 修复2: iOS 自动登录同步逻辑
+                // 优先检查 URL 是否带 ID (Safari -> PWA 的桥梁)
                 const params = new URLSearchParams(window.location.search);
                 const linkUid = params.get('uid');
                 
                 if (linkUid) {
-                    // 如果 URL 里有 ID，优先使用 URL 的 ID（实现 Safari -> PWA 数据继承）
                     localStorage.setItem('hy_uid', linkUid);
-                    if (!userId) setRecoverId(linkUid); // 预填充，方便逻辑处理
+                    if (!userId) setRecoverId(linkUid);
                 }
 
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
@@ -258,20 +265,15 @@
                 const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
                 
                 const savedId = localStorage.getItem('hy_uid');
-                
-                // 如果本地有ID，或者 URL 有 ID，尝试自动登录
                 const targetId = linkUid || savedId;
 
                 if (targetId) {
-                    setUserId(targetId); // 临时设置状态以便后续逻辑
-                    // 延迟一点点，让界面平滑过渡
+                    setUserId(targetId);
                     setTimeout(() => {
                         const savedBoss = localStorage.getItem('hy_boss');
-                        // 如果是老用户，尝试直接登录
                         if (savedBoss) {
                             doLogin(targetId, savedBoss);
                         } else {
-                            // 如果只有 ID 没有 Boss (比如通过链接安装的)，尝试恢复
                             fetch(`${SOCKET_URL}/api/user/check`, {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
@@ -292,10 +294,9 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // 修复3: 监听 userId 变化，实时更新 URL (仅 iOS)
+            // 🔧 修复2补充: 只要有 ID，就疯狂写入 URL，确保用户添加桌面时带上 ID
             useEffect(() => {
                 if (userId && isIos) {
-                    // 将 ID 写入地址栏，这样用户添加到主屏幕时，链接里就自带 ID 了
                     const newUrl = new URL(window.location);
                     if (newUrl.searchParams.get('uid') !== userId) {
                         newUrl.searchParams.set('uid', userId);
@@ -327,7 +328,10 @@
 
             const registerPush = async (uid) => {
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-                if (Notification.permission === 'default') await Notification.requestPermission();
+                // iOS 必须要有用户交互才能请求权限，我们在登录或点击按钮时触发
+                if (Notification.permission === 'default') {
+                    // 不自动弹，等待用户点击
+                }
                 try {
                     const reg = await navigator.serviceWorker.ready;
                     let sub = await reg.pushManager.getSubscription();
@@ -339,6 +343,16 @@
                     }
                     await fetch(`${SOCKET_URL}/api/subscribe`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: uid, subscription: sub }) });
                 } catch (e) {}
+            };
+
+            // 手动触发通知权限请求 (用于 iOS PWA)
+            const requestNotificationPermission = async () => {
+                if (!('Notification' in window)) return;
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    registerPush(userId);
+                    alert("✅ 离线通知已开启！刷视频时也能收到消息了。");
+                }
             };
 
             useEffect(() => {
@@ -366,7 +380,6 @@
                 return () => document.removeEventListener('visibilitychange', handleVisibility);
             }, []);
 
-            // 修复2: 智能滚动 - 只有当不在底部时才强制滚，或者新消息来时
             useEffect(() => {
                 if (messagesEndRef.current) {
                     messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -378,12 +391,12 @@
             const doLogin = (uid, bid) => { 
                 if(socketRef.current) socketRef.current.disconnect(); 
                 setUserId(uid); setBossId(bid); setStep('chat'); 
-                // 确保 localStorage 同步
                 localStorage.setItem('hy_uid', uid);
                 localStorage.setItem('hy_boss', bid);
                 
                 initSocket(uid, bid); 
-                registerPush(uid); 
+                // 登录成功后，尝试注册推送
+                registerPush(uid);
             };
 
             const initSocket = (uid, bid) => {
@@ -437,7 +450,6 @@
             };
 
             const handleLoginBtn = () => { 
-                if("Notification" in window) Notification.requestPermission();
                 setErrorMsg(''); setLoading(true);
                 
                 if (showRecover) {
@@ -482,21 +494,21 @@
             const handleSend = () => { 
                 if (!chatInput.trim()) return; 
                 const msgData = { userId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent' }; 
-                setMessages(prev => [...prev, msgData]); 
+                
+                // 🔧 修复3: 文本消息移除本地 setMessages，完全信赖 socket 'receive_message' 回传
+                // 这样就绝对不会出现“发一条显示两条”的情况了
+                // setMessages(prev => [...prev, msgData]);  <-- 这行删掉
+                
                 socketRef.current.emit('send_message', msgData); 
                 socketRef.current.emit('typing', { targetId: 'admin', isTyping: false });
                 setChatInput(''); 
-                // 发送后自动聚焦，方便连续输入
-                // 注意：在手机上可能导致键盘持续弹起，根据体验决定是否保留
-                // document.getElementById('chat-input').focus();
             };
             
-            // 修复5: 图片预览优化 (流畅度)
             const handleImageUpload = async (e) => { 
                 const file = e.target.files[0]; 
                 if (!file) return; 
                 
-                // 1. 立即显示本地预览 (Optimistic UI)
+                // 图片保持本地预览（为了流畅体验）
                 const previewUrl = URL.createObjectURL(file);
                 const tempId = Date.now();
                 const tempMsg = { id: tempId, userId, content: previewUrl, type: 'image', isFromUser: true, status: 'sending', createdAt: new Date() };
@@ -504,11 +516,11 @@
                 
                 e.target.value = ''; 
 
-                // 2. 异步压缩，不阻塞主线程
                 setTimeout(async () => {
                     try { 
                         const base64 = await compressImage(file);
                         socketRef.current.emit('send_message', { ...tempMsg, content: base64 });
+                        // 图片不依赖服务器回传更新状态，直接本地更新，避免闪烁
                         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
                     } catch(e) { 
                         alert("图片处理失败"); 
@@ -526,7 +538,7 @@
                         </div>
                         {userId && (
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4">
-                                <p className="text-blue-400 text-xs mb-1">您的恢复 ID (系统已自动记录):</p>
+                                <p className="text-blue-400 text-xs mb-1">您的恢复 ID (已自动同步):</p>
                                 <p className="text-white font-mono text-xl font-bold select-all">{userId}</p>
                             </div>
                         )}
@@ -536,7 +548,7 @@
                 </div>
             );
 
-            if (step === 'loading') return null; // 此时显示静态 HTML
+            if (step === 'loading') return null;
 
             if (step === 'login') return (
                 <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-tg-bg h-full">
@@ -575,7 +587,7 @@
                             </div>
                         </div>
                     </div>
-                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 账号将自动同步</p></GuideModal>}
+                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 账号将自动同步，无需重新登录</p></GuideModal>}
                     {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
@@ -584,7 +596,6 @@
                 <div className="flex flex-col w-full h-full bg-tg-bg">
                     <TopToast msg={toast.msg} show={toast.show} />
                     
-                    {/* 修复1: Header 适配 pt-safe-header */}
                     <header className="w-full bg-tg-header text-white pt-safe-header flex-shrink-0 z-50 border-b border-white/5 flex items-center justify-between px-4 shadow-md">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
@@ -594,16 +605,21 @@
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>
+                            {/* 只有 iOS PWA 模式下显示开启通知按钮 */}
+                            {isIos && isStandalone && Notification.permission === 'default' && (
+                                <button onClick={requestNotificationPermission} className="bg-green-600/20 text-green-400 text-xs px-3 py-1.5 rounded-full border border-green-500/30 animate-pulse">
+                                    开启通知
+                                </button>
+                            )}
+                            {!isStandalone && <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>}
                             <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
                         </div>
                     </header>
 
-                    {/* 修复2: 滚动区域使用 flex-1 */}
                     <div className="ios-scroll p-4 space-y-3 bg-transparent">
                         <div className="text-center py-2 animate-fade-in">
-                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallAction}>
-                                🔔 点此开启「离线通知」，避免收不到回复 >
+                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={isStandalone ? requestNotificationPermission : handleInstallAction}>
+                                🔔 {isStandalone ? "点此允许接收「离线消息」通知" : "点此开启「离线通知」，避免收不到回复 >"}
                             </p>
                         </div>
                         {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-4">正在建立加密连接...</div>}
@@ -623,7 +639,6 @@
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* 修复2: 输入框区域 pb-safe 适配底部黑条 */}
                     <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-center">
                         <label className="text-gray-400 p-2"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
                         <textarea id="chat-input" rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-black/20 rounded-lg text-white text-sm p-2 outline-none border border-transparent focus:border-blue-500/50 transition-all resize-none" placeholder="输入消息..."></textarea>
