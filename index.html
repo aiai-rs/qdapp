@@ -11,14 +11,18 @@
     
     <title>汇盈国际官方客服</title>
     
-    <link href="https://cdn.staticfile.net/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://cdn.socket.io">
 
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
-    
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <link rel="apple-touch-startup-image" href="/icon-512.png">
+    <link rel="preload" href="/icon-192.png" as="image">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
@@ -34,54 +38,65 @@
                         'slide-up': 'slideUp 0.3s ease-out forwards', 
                         'slide-down-toast': 'slideDownToast 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards',
                         'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite', 
-                        'fade-in': 'fadeIn 0.3s ease-out',
-                        'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both'
+                        'fade-in': 'fadeIn 0.3s ease-out' 
                     },
                     keyframes: { 
                         slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
                         slideDownToast: { '0%': { transform: 'translateY(-150%)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
-                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-                        shake: { '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' }, '20%, 80%': { transform: 'translate3d(2px, 0, 0)' }, '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' }, '40%, 60%': { transform: 'translate3d(4px, 0, 0)' } }
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }
                     }
                 }
             }
         }
     </script>
     <style>
-        html { background-color: #0f1621; height: 100%; }
+        /* 还原：原本的 CSS 样式 */
+        #app-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://web.telegram.org/img/bg_0.png');
+            background-repeat: repeat;
+            z-index: 0; pointer-events: none;
+        }
+        html { background-color: #0f1621; }
         body { 
-            background-color: #0f1621;
+            background-color: transparent; 
             margin: 0; padding: 0; width: 100%; height: 100%; 
-            overflow: hidden; 
-            overscroll-behavior: none; 
+            /* 修复：这里加 position: fixed 解决 iOS 键盘顶起乱飞的问题 */
+            position: fixed; left: 0; top: 0; overflow: hidden; overscroll-behavior: none; 
             -webkit-tap-highlight-color: transparent;
+            /* 重点：原本的字体设置，完全没动 */
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            position: fixed; left: 0; top: 0; right: 0; bottom: 0;
         }
         :root { --app-height: 100%; }
         #root { 
             width: 100%; height: var(--app-height); 
-            display: flex; flex-direction: column; position: relative; z-index: 1; 
+            display: flex; flex-direction: column; position: relative; 
+            z-index: 1; 
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .ios-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; flex: 1; }
-        .pt-safe-header { padding-top: env(safe-area-inset-top); min-height: calc(env(safe-area-inset-top) + 56px); }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        /* 修复：头部适配刘海 */
+        .pt-safe { padding-top: env(safe-area-inset-top); min-height: calc(env(safe-area-inset-top) + 56px); }
         .glass-btn { background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
         .glass-btn:active { transform: scale(0.98); }
+        /* 修复：静态 Loading 解决白屏 */
         #static-loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: flex; flex-direction: column; items-align: center; text-align: center;
+            position: fixed; inset: 0; background: #0f1621; z-index: 9999; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
     </style>
 </head>
 <body oncontextmenu="return false">
+    <div id="app-background"></div>
+    
     <div id="root">
-        <div id="static-loading" class="animate-pulse">
-            <div class="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 mx-4 shadow-xl">
-                <span class="text-white font-bold text-xl">HY</span>
+        <div id="static-loading">
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-2xl animate-pulse mb-4">
+                <span class="text-white font-black text-2xl">HY</span>
             </div>
-            <p class="text-gray-500 text-xs">正在建立安全连接...</p>
+            <h2 class="text-white font-bold text-lg tracking-widest">汇盈国际加密专线</h2>
+            <p class="text-gray-500 text-xs mt-2">正在建立安全连接...</p>
         </div>
     </div>
 
@@ -89,6 +104,7 @@
         const { useState, useEffect, useRef, useLayoutEffect } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
+        // 修复：iOS 键盘高度处理
         const useAppHeight = () => {
             const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
             useLayoutEffect(() => {
@@ -151,7 +167,7 @@
             const cambodiaTime = new Date(utc + (3600000 * 7));
             const hour = cambodiaTime.getHours();
             const isWorking = hour >= 13 && hour < 23; 
-            return { isWorking, text: isWorking ? '业务员在线' : '休息中 (请留言)', color: isWorking ? 'text-green-400' : 'text-tg-warning' };
+            return { isWorking, text: isWorking ? '当前业务员繁忙' : '休息中 (请留言)', color: isWorking ? 'text-green-400' : 'text-tg-warning' };
         };
 
         const TopToast = ({ msg, show }) => {
@@ -159,7 +175,9 @@
             return (
                 <div className="fixed top-4 left-4 right-4 z-[999] pointer-events-none animate-slide-down-toast">
                     <div className="bg-black/85 backdrop-blur-md border border-white/10 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-green-500 to-green-600 flex items-center justify-center shrink-0 text-xs font-bold">HY</div>
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-green-500 to-green-600 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold">HY</span>
+                        </div>
                         <div className="flex-1 min-w-0">
                             <p className="font-bold text-sm text-gray-200">新消息</p>
                             <p className="text-xs text-white truncate">{msg}</p>
@@ -168,15 +186,6 @@
                 </div>
             );
         };
-
-        const LoadingView = () => (
-            <div className="flex flex-col items-center justify-center h-full w-full bg-[#0f1621] animate-pulse">
-                <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 shadow-xl">
-                    <span className="text-white font-bold text-xl">HY</span>
-                </div>
-                <p className="text-gray-500 text-xs">正在建立安全连接...</p>
-            </div>
-        );
 
         function App() {
             useAppHeight(); 
@@ -212,9 +221,10 @@
             const [showAndroidGuide, setShowAndroidGuide] = useState(false);
             
             const socketRef = useRef(null);
-            const messagesEndRef = useRef(null);
+            const scrollRef = useRef(null);
             const typingTimeoutRef = useRef(null);
 
+            // 修复：自动登录 + URL参数同步
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
                 const linkUid = params.get('uid');
@@ -235,9 +245,8 @@
 
                 if (targetId && targetBoss) {
                     setTimeout(() => doLogin(targetId, targetBoss), 300);
-                } 
-                else if (targetId) {
-                    setUserId(targetId); setRecoverId(targetId); setStep('login'); 
+                } else if (targetId) {
+                    setRecoverId(targetId); setStep('login'); 
                 } else {
                     setStep('login');
                 }
@@ -245,7 +254,7 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // 修复自动登录URL参数：登录成功后，立即把 bossId 也塞进 URL
+            // 修复：URL 实时更新 (让 Safari 添加到桌面时带上老板ID)
             useEffect(() => {
                 if (userId && bossId && isIos) {
                     const newUrl = new URL(window.location);
@@ -288,7 +297,7 @@
                     await fetch(`${SOCKET_URL}/api/subscribe`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: uid, subscription: sub }) });
                 } catch (e) {}
             };
-
+            
             const requestNotificationPermission = async () => {
                 if (!('Notification' in window)) return;
                 const permission = await Notification.requestPermission();
@@ -316,7 +325,7 @@
                 return () => document.removeEventListener('visibilitychange', handleVisibility);
             }, []);
 
-            useEffect(() => { if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, adminTyping, step]);
+            useEffect(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, adminTyping]);
 
             const fetchMessages = (uid) => { fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); }); };
             
@@ -329,11 +338,11 @@
                 registerPush(uid); 
             };
             
+            // 修复：强制下线/拉黑/删除，必须刷新页面清空状态
             const forceLogoutNow = (reason) => {
-                localStorage.removeItem('hy_uid');
-                setMessages([]); setUserId(''); setStep('login'); 
-                if(socketRef.current) socketRef.current.disconnect();
+                localStorage.clear(); // 清空所有缓存
                 if(reason) alert(reason);
+                location.reload(); // 暴力刷新，确保回到初始登录页
             };
 
             const initSocket = (uid, bid) => {
@@ -359,6 +368,8 @@
                         if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000);
                     });
                     socketRef.current.on('messages_read_update', () => setMessages(prev => prev.map(m => m.isFromUser ? { ...m, status: 'read' } : m)));
+                    
+                    // 绑定强制下线事件
                     socketRef.current.on('force_logout', () => forceLogoutNow("⚠️ 您的会话已结束"));
                     socketRef.current.on('force_logout_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
                     socketRef.current.on('admin_user_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
@@ -388,14 +399,10 @@
                 if (validBosses.includes(input)) { 
                     const tempSocket = io(SOCKET_URL); 
                     tempSocket.emit('request_id', '@'+input, (newId) => { 
-                        tempSocket.disconnect(); 
-                        setLoading(false); 
-                        // 登录成功后，手动调用 doLogin 触发跳转
+                        tempSocket.disconnect(); setLoading(false); 
                         doLogin(newId, '@'+input); 
                     }); 
-                } else { 
-                    setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); 
-                } 
+                } else { setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); } 
             };
             
             const handleTyping = (e) => { 
@@ -403,21 +410,21 @@
                 if(socketRef.current) socketRef.current.emit('typing', { targetId: 'admin', isTyping: true });
             };
 
+            // 修复：发消息带 BossID
             const handleSend = () => { 
                 if (!chatInput.trim()) return; 
-                // 修复：发消息时带上 bossId，这样后端才能更新老板归属
                 const msgData = { userId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent', bossId }; 
                 socketRef.current.emit('send_message', msgData); 
                 socketRef.current.emit('typing', { targetId: 'admin', isTyping: false });
                 setChatInput(''); 
             };
             
+            // 修复：发图片带 BossID
             const handleImageUpload = async (e) => { 
                 const file = e.target.files[0]; 
                 if (!file) return; 
                 const previewUrl = URL.createObjectURL(file);
                 const tempId = Date.now();
-                // 修复：发图片时也带上 bossId
                 const tempMsg = { id: tempId, userId, content: previewUrl, type: 'image', isFromUser: true, status: 'sending', createdAt: new Date(), bossId };
                 setMessages(prev => [...prev, tempMsg]);
                 e.target.value = ''; 
@@ -439,20 +446,21 @@
                         </div>
                         {userId && (
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4">
-                                <p className="text-blue-400 text-xs mb-1">您的恢复 ID (已自动同步):</p>
+                                <p className="text-blue-400 text-xs mb-1">您的恢复 ID (请截图):</p>
                                 <p className="text-white font-mono text-xl font-bold select-all">{userId}</p>
+                                <p className="text-gray-400 text-[10px] mt-1">安装 App 后，使用此 ID 找回记录</p>
                             </div>
                         )}
-                        <div className="text-left text-xs text-gray-300 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
-                        <button onClick={onClose} className="w-full bg-[#2b5278] hover:bg-[#254666] text-white font-bold py-3 rounded-xl transition-colors">我知道了</button>
+                        <div className="text-left text-xs text-gray-400 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
+                        <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">我知道了</button>
                     </div>
                 </div>
             );
 
-            if (step === 'loading') return <LoadingView />;
+            if (step === 'loading') return null;
 
             if (step === 'login') return (
-                <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg h-full">
+                <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg" style={{height:'var(--app-height)'}}>
                     <div className="z-10 w-full max-w-[340px] mx-auto">
                         <h1 className="text-[34px] font-black text-white mb-2">汇盈国际官方客服</h1>
                         <p className="text-gray-400 text-[15px] mb-8 font-medium">请输入广告中老板的 <span className="text-login-textSub font-bold">Telegram 用户名</span></p>
@@ -503,19 +511,18 @@
             );
 
             return (
-                <div className="flex flex-col w-full h-full bg-tg-bg">
+                <div className="flex flex-col bg-tg-bg max-w-md mx-auto shadow-2xl relative w-full" style={{height:'var(--app-height)'}}>
                     <TopToast msg={toast.msg} show={toast.show} />
-                    
-                    <header className="w-full bg-tg-header text-white pt-safe-header flex-shrink-0 z-50 border-b border-white/5 flex items-center justify-between px-4 shadow-md">
+                    <header className="w-full bg-tg-header text-white pt-safe flex-shrink-0 z-50 border-b border-white/5 h-14 flex items-center justify-between px-4">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
                             <div>
-                                <h3 className="font-bold text-sm">客服 ({bossId.replace('@','')})</h3>
+                                <h3 className="font-bold text-sm">汇盈国际客服</h3>
                                 <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            {isIos && isStandalone && Notification.permission === 'default' && (
+                             {isIos && isStandalone && Notification.permission === 'default' && (
                                 <button onClick={requestNotificationPermission} className="bg-green-600/20 text-green-400 text-xs px-3 py-1.5 rounded-full border border-green-500/30 animate-pulse">开启通知</button>
                             )}
                             {!isStandalone && <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>}
@@ -523,7 +530,7 @@
                         </div>
                     </header>
 
-                    <div className="ios-scroll p-4 space-y-3 bg-transparent">
+                    <div className="flex-1 ios-scroll p-4 space-y-3 bg-transparent overflow-y-auto">
                         <div className="text-center py-2 animate-fade-in">
                             <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={isStandalone ? requestNotificationPermission : handleInstallAction}>
                                 🔔 {isStandalone ? "点此允许接收「离线消息」通知" : "点此开启「离线通知」，避免收不到回复 >"}
@@ -542,19 +549,18 @@
                             </div>
                         ))}
                         {adminTyping && <div className="bg-tg-secondary px-3 py-2 rounded-xl w-12 flex gap-1 ml-1 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
-                        <div ref={messagesEndRef} />
+                        <div ref={scrollRef} />
                     </div>
 
                     <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-center">
                         <label className="text-gray-400 p-2"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
-                        <textarea id="chat-input" rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-black/20 rounded-lg text-white text-sm p-2 outline-none border border-transparent focus:border-blue-500/50 transition-all resize-none" placeholder="输入消息..."></textarea>
-                        <button onClick={handleSend} className="p-2 px-4 rounded-xl text-white bg-tg-accent font-bold text-sm shadow-lg">发送</button>
+                        <textarea rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-transparent text-white text-sm p-2 outline-none" placeholder="输入消息..."></textarea>
+                        <button onClick={handleSend} className="p-2 rounded-xl text-white bg-tg-accent">发送</button>
                     </div>
-                    
-                    {previewImg && <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/95 backdrop-blur-md" onClick={() => setPreviewImg(null)}><img src={previewImg} className="max-w-screen max-h-screen object-contain" /></div>}
+                    {previewImg && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md" onClick={() => setPreviewImg(null)}><img src={previewImg} className="max-w-screen max-h-screen object-contain" /></div>}
                     
                     {showTutorial && (
-                        <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowTutorial(false)}>
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowTutorial(false)}>
                             <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-5" onClick={e => e.stopPropagation()}>
                                 <h3 className="font-bold text-white mb-4">🚀 快速教程</h3>
                                 <p className="text-gray-300 text-sm mb-4">1. 获取美区 Apple ID（联系业务员获取）<br/>2. 下载 Shadowrocket（联系业务员获取）<br/>3. 复制链接打开（联系业务员获取）</p>
