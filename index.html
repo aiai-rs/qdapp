@@ -6,43 +6,57 @@
     <meta name="theme-color" content="#17212b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
     <title>汇盈国际官方客服</title>
+    
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: { 
-                        tg: { bg: "#0f1621", header: "#17212b", input: "#0e1621", blue: "#2b5278", secondary: "#182533", accent: "#0088cc", danger: "#ff5252", warning: "#fb8c00", info: "#8774e1" },
-                        login: { bg: "#0b1016", card: "#161d27", input: "#161e29", textMain: "#ffffff", textSub: "#3b82f6", textWarn: "#ef4444", textErr: "#ff4b4b" }
+                        tg: { bg: "#0f1621", header: "#17212b", input: "#0e1621", blue: "#2b5278", secondary: "#182533", accent: "#0088cc", danger: "#ff5252", warning: "#fb8c00" },
+                        login: { bg: "#0b1016", card: "#161d27", input: "#161e29", textMain: "#ffffff", textSub: "#3b82f6", textWarn: "#ef4444" }
                     },
-                    animation: { 'slide-up': 'slideUp 0.3s ease-out forwards', 'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both', 'fade-in': 'fadeIn 0.3s forwards', 'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' },
+                    animation: { 'slide-up': 'slideUp 0.3s ease-out forwards', 'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite', 'fade-in': 'fadeIn 0.5s ease-out' },
                     keyframes: { 
-                        slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }, 
-                        shake: { '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' }, '20%, 80%': { transform: 'translate3d(2px, 0, 0)' }, '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' }, '40%, 60%': { transform: 'translate3d(4px, 0, 0)' } }, 
-                        fadeIn: { from: {opacity:0}, to:{opacity:1} } 
+                        slideUp: { '0%': { transform: 'translateY(100%)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }
                     }
                 }
             }
         }
     </script>
     <style>
-        html, body { height: 100%; overflow: hidden; overscroll-behavior: none; background-color: #0f1621; }
-        body { color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-user-select: none; user-select: none; }
-        #root { height: 100dvh; display: flex; flex-direction: column; }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+ 
+        html, body { height: 100dvh; width: 100%; overflow: hidden; background-color: #0f1621; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        #root { display: flex; flex-direction: column; height: 100%; width: 100%; position: relative; }
+        
+
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .ios-scroll { -webkit-overflow-scrolling: touch; overflow-y: auto; overscroll-behavior-y: contain; }
+        .ios-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+        
         .bg-pattern { background-image: url('https://web.telegram.org/img/bg_0.png'); background-repeat: repeat; background-attachment: fixed; }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        
+
         .pt-safe { padding-top: env(safe-area-inset-top); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    
         .glass-btn { background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
         .glass-btn:active { transform: scale(0.98); }
+        
         #splash-screen { position: fixed; inset: 0; background: #0f1621; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
     </style>
 </head>
@@ -52,9 +66,11 @@
             <span class="text-white font-black text-2xl">HY</span>
         </div>
         <h2 class="text-white font-bold text-lg tracking-widest">汇盈国际加密专线</h2>
-        <p class="text-gray-500 text-xs mt-2">正在建立安全连接...</p>
+        <p class="text-gray-500 text-xs mt-2">安全 · 极速 · 隐私</p>
     </div>
+
     <div id="root"></div>
+
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
@@ -108,9 +124,13 @@
             const [workStatus, setWorkStatus] = useState(getWorkStatus());
             const [previewImg, setPreviewImg] = useState(null);
             const [adminTyping, setAdminTyping] = useState(false);
-            const [installPrompt, setInstallPrompt] = useState(null); 
+            
+            // P
+            const [installPrompt, setInstallPrompt] = useState(null); // 
+            const [canInstall, setCanInstall] = useState(false);      // 
             const [showIosGuide, setShowIosGuide] = useState(false);
             const [showAndroidGuide, setShowAndroidGuide] = useState(false);
+            
             const socketRef = useRef(null);
             const scrollRef = useRef(null);
             const typingTimeoutRef = useRef(null);
@@ -120,18 +140,34 @@
                     const splash = document.getElementById('splash-screen');
                     if(splash) { splash.style.opacity = '0'; setTimeout(()=>splash.remove(), 500); }
                 }, 1200);
+
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
-                window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setInstallPrompt(e); });
+
+                // 核心：监听安卓安装事件
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault(); // 
+                    setInstallPrompt(e); // 
+                    setCanInstall(true); //
+                });
             }, []);
 
-            const handleInstallClick = () => {
+            // 智能安装处理函数
+            const handleInstallAction = () => {
                 const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+                
                 if (isIos) {
-                    setShowIosGuide(true);
-                } else if (installPrompt) {
-                    installPrompt.prompt();
-                    installPrompt.userChoice.then((choiceResult) => { if (choiceResult.outcome === 'accepted') setInstallPrompt(null); });
+                    setShowIosGuide(true); // iOS 只能弹教程
+                } else if (canInstall && installPrompt) {
+
+                    installPrompt.prompt(); // 
+                    installPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            setCanInstall(false); // 
+                        }
+                        setInstallPrompt(null);
+                    });
                 } else {
+
                     setShowAndroidGuide(true);
                 }
             };
@@ -165,7 +201,7 @@
             }, [userId]);
 
             const flashTitle = (start) => {
-                if (start) { document.title = "【🔔 新消息】汇盈国际"; } else { document.title = "汇盈国际官方客服"; }
+                if (start) { document.title = "【🔔 新消息】"; } else { document.title = "汇盈国际官方客服"; }
             };
 
             useEffect(() => {
@@ -227,12 +263,12 @@
 
             const GuideModal = ({ title, children, onClose }) => (
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center pb-8" onClick={onClose}>
-                    <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-5 rounded-2xl max-w-sm mx-4 animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
+                    <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-5 rounded-2xl max-w-sm w-full mx-4 animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2 mb-3">
                             <span className="text-xl">🔔</span>
                             <p className="text-white font-bold text-lg">{title}</p>
                         </div>
-                        <p className="text-gray-300 text-xs mb-4 leading-relaxed bg-white/5 p-2 rounded">为了防止您离开页面后<span className="text-blue-400 font-bold">收不到客服回复</span>，建议将本站添加到桌面。</p>
+                        <p className="text-gray-300 text-xs mb-4 leading-relaxed bg-white/5 p-2 rounded">为了防止您离开页面后<span className="text-blue-400 font-bold">收不到业务员的回复</span>，建议将本站添加到桌面。</p>
                         <div className="text-left text-xs text-gray-400 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
                         <button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors">我知道了</button>
                     </div>
@@ -240,7 +276,7 @@
             );
 
             if (step === 'login') return (
-                <div className="h-[100dvh] w-full bg-login-bg flex flex-col justify-center px-8 relative font-sans">
+                <div className="h-full w-full bg-login-bg flex flex-col justify-center px-8 relative font-sans">
                     <div className="z-10 w-full max-w-[340px] mx-auto">
                         <h1 className="text-[34px] font-black text-white mb-2 tracking-tight">汇盈国际官方客服</h1>
                         <p className="text-gray-400 text-[15px] mb-8 font-medium">请输入广告中老板的 <span className="text-login-textSub font-bold">Telegram 用户名</span></p>
@@ -255,12 +291,15 @@
                             </div>
                             <div className="min-h-[24px]">{errorMsg && (<div className={`text-login-textErr text-[13px] font-bold flex items-center gap-1.5 ${isShake ? 'animate-shake' : ''}`}>{errorMsg}</div>)}</div>
                             <button onClick={handleLoginBtn} className="w-full glass-btn text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide">连接汇盈国际官方业务员 <span className="text-xl leading-none mb-0.5 ml-1">→</span></button>
+                            
+                            {/* 智能安装按钮 */}
                             <div className="pt-4 flex justify-center">
-                                <button onClick={handleInstallClick} className="text-blue-300/80 text-xs flex items-center gap-1 hover:text-white border border-blue-500/30 bg-blue-500/5 px-4 py-2 rounded-full transition-all">
+                                <button onClick={handleInstallAction} className="text-blue-300/80 text-xs flex items-center gap-1 hover:text-white border border-blue-500/30 bg-blue-500/5 px-4 py-2 rounded-full transition-all active:scale-95">
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                    📲 开启离线通知 (推荐)
+                                    {canInstall ? "📲 点击一键安装APP (防失联) " : "📲 开启离线通知 (防失联)"}
                                 </button>
                             </div>
+                            
                             <div className="text-center pt-4 opacity-60">
                                 <p className="text-indigo-200 text-[12px] font-medium tracking-wide flex items-center justify-center gap-1.5">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -269,26 +308,28 @@
                             </div>
                         </div>
                     </div>
+                    {/* 弹窗 */}
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
-                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
+                    {showAndroidGuide && <GuideModal title="手动安装指引" onClose={()=>setShowAndroidGuide(false)}><p>您的浏览器未触发自动安装。</p><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
 
             return (
-                <div className="h-[100dvh] flex flex-col bg-tg-bg max-w-md mx-auto shadow-2xl relative">
+                <div className="h-full flex flex-col bg-tg-bg max-w-md mx-auto shadow-2xl relative">
                     <header className="h-14 bg-tg-header flex items-center justify-between px-4 shadow-lg z-20 border-b border-white/5 shrink-0 pt-safe">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">HY</div>
                             <div><h3 className="font-bold text-sm text-white">汇盈国际官方客服</h3><p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p></div>
                         </div>
                         <div className="flex gap-2">
-                             <button onClick={handleInstallClick} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">安装APP</button>
+                             <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">安装APP</button>
                              <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
                         </div>
                     </header>
                     <div className="flex-1 ios-scroll p-4 space-y-3 bg-pattern">
+                        {/* 顶部提示条 */}
                         <div className="text-center py-2 animate-fade-in">
-                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallClick}>
+                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallAction}>
                                 🔔 点此开启「离线推送」，避免收不到回复 >
                             </p>
                         </div>
@@ -320,7 +361,7 @@
                         </div>
                     )}
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
-                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
+                    {showAndroidGuide && <GuideModal title="手动安装指引" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
         }
