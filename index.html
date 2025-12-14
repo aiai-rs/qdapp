@@ -53,7 +53,7 @@
             overflow: hidden; 
             overscroll-behavior: none; 
             -webkit-tap-highlight-color: transparent;
-            position: fixed; /* iOS 键盘防抖关键 */
+            position: fixed; 
             left: 0; top: 0; right: 0; bottom: 0;
         }
         
@@ -78,7 +78,6 @@
             flex: 1; 
         }
 
-        /* iOS 安全区适配 */
         .pt-safe-header {
             padding-top: env(safe-area-inset-top);
             min-height: calc(env(safe-area-inset-top) + 56px);
@@ -108,44 +107,28 @@
         const { useState, useEffect, useRef, useLayoutEffect } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
-        // 🔧 修复1: 针对 iOS 键盘顶起问题的核心修复
         const useAppHeight = () => {
             const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            
             useLayoutEffect(() => {
                 const setHeight = () => {
-                    // 如果是 iOS，必须严格依赖 visualViewport
                     if (isIos && window.visualViewport) {
                         const h = window.visualViewport.height;
                         document.documentElement.style.setProperty('--app-height', `${h}px`);
-                        
-                        // 关键修复：强制滚动回顶部，防止输入框飞到天上
                         window.scrollTo(0, 0);
                         document.body.scrollTop = 0;
                     } else {
-                        // 安卓保持原样，不动它
                         document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
                     }
                 };
-                
                 setHeight();
                 window.addEventListener('resize', setHeight);
                 if (window.visualViewport) {
                     window.visualViewport.addEventListener('resize', setHeight);
-                    if (isIos) {
-                        // iOS 额外监听 scroll，强制归位
-                        window.visualViewport.addEventListener('scroll', () => {
-                            window.scrollTo(0, 0);
-                            document.body.scrollTop = 0;
-                        });
-                    }
+                    if (isIos) window.visualViewport.addEventListener('scroll', () => { window.scrollTo(0, 0); document.body.scrollTop = 0; });
                 }
-                
                 return () => {
                     window.removeEventListener('resize', setHeight);
-                    if (window.visualViewport) {
-                        window.visualViewport.removeEventListener('resize', setHeight);
-                    }
+                    if (window.visualViewport) window.visualViewport.removeEventListener('resize', setHeight);
                 };
             }, [isIos]);
         };
@@ -210,7 +193,6 @@
 
             const isAndroid = /Android/i.test(navigator.userAgent);
             const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            // 简单判断是否在 PWA 模式下运行
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             
             const [step, setStep] = useState('loading'); 
@@ -240,53 +222,43 @@
             const [showAndroidGuide, setShowAndroidGuide] = useState(false);
             
             const socketRef = useRef(null);
-            const scrollRef = useRef(null);
-            const typingTimeoutRef = useRef(null);
             const messagesEndRef = useRef(null);
+            const typingTimeoutRef = useRef(null);
 
+            // ⚡️ 核心修复：URL 参数同步逻辑 (iOS 自动登录 + 老板ID记忆)
             useEffect(() => {
-                // 🔧 修复2: iOS 自动登录同步逻辑
-                // 优先检查 URL 是否带 ID (Safari -> PWA 的桥梁)
                 const params = new URLSearchParams(window.location.search);
                 const linkUid = params.get('uid');
-                
-                if (linkUid) {
-                    localStorage.setItem('hy_uid', linkUid);
-                    if (!userId) setRecoverId(linkUid);
-                }
+                const linkBoss = params.get('boss'); // ⚡️ 获取链接里的 bossId
 
+                // 只要 URL 里有，立即覆盖本地缓存
+                if (linkUid) localStorage.setItem('hy_uid', linkUid);
+                if (linkBoss) localStorage.setItem('hy_boss', linkBoss);
+
+                // Service Worker 注册
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
                 window.addEventListener('beforeinstallprompt', (e) => { 
-                    e.preventDefault(); 
-                    setInstallPrompt(e); 
-                    setCanInstall(true); 
+                    e.preventDefault(); setInstallPrompt(e); setCanInstall(true); 
                 });
                 
                 const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
                 
+                // 尝试登录逻辑
                 const savedId = localStorage.getItem('hy_uid');
+                const savedBoss = localStorage.getItem('hy_boss');
+                
                 const targetId = linkUid || savedId;
+                const targetBoss = linkBoss || savedBoss;
 
-                if (targetId) {
+                // 如果有 ID 且 有老板信息，直接登录（针对 PWA 安装后的情况）
+                if (targetId && targetBoss) {
+                    setTimeout(() => doLogin(targetId, targetBoss), 300); // 稍微延迟确保渲染
+                } 
+                else if (targetId) {
+                    // 有 ID 没老板（罕见，但也处理一下）
                     setUserId(targetId);
-                    setTimeout(() => {
-                        const savedBoss = localStorage.getItem('hy_boss');
-                        if (savedBoss) {
-                            doLogin(targetId, savedBoss);
-                        } else {
-                            fetch(`${SOCKET_URL}/api/user/check`, {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ userId: targetId })
-                            }).then(r=>r.json()).then(d=>{
-                                if(d.exists) {
-                                    doLogin(targetId, '@SystemRestore');
-                                } else {
-                                    setStep('login');
-                                }
-                            }).catch(()=>setStep('login'));
-                        }
-                    }, 500);
+                    setRecoverId(targetId);
+                    setStep('login'); 
                 } else {
                     setStep('login');
                 }
@@ -294,29 +266,27 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // 🔧 修复2补充: 只要有 ID，就疯狂写入 URL，确保用户添加桌面时带上 ID
+            // ⚡️ 核心修复：实时更新 URL (包含 uid 和 boss)，确保分享出去的链接带全套信息
             useEffect(() => {
-                if (userId && isIos) {
+                if (userId && bossId && isIos) {
                     const newUrl = new URL(window.location);
-                    if (newUrl.searchParams.get('uid') !== userId) {
+                    const currentUid = newUrl.searchParams.get('uid');
+                    const currentBoss = newUrl.searchParams.get('boss');
+                    
+                    if (currentUid !== userId || currentBoss !== bossId) {
                         newUrl.searchParams.set('uid', userId);
+                        newUrl.searchParams.set('boss', bossId); // ⚡️ 把老板 ID 也塞进 URL
                         window.history.replaceState(null, '', newUrl.toString());
                     }
                 }
-            }, [userId, isIos]);
+            }, [userId, bossId, isIos]);
 
             const handleInstallAction = () => {
-                if (isIos) {
-                    setShowIosGuide(true);
-                } else if (canInstall && installPrompt) {
+                if (isIos) setShowIosGuide(true);
+                else if (canInstall && installPrompt) {
                     installPrompt.prompt();
-                    installPrompt.userChoice.then((res) => {
-                        if (res.outcome === 'accepted') setCanInstall(false);
-                        setInstallPrompt(null);
-                    });
-                } else {
-                    setShowAndroidGuide(true);
-                }
+                    installPrompt.userChoice.then((res) => { if (res.outcome === 'accepted') setCanInstall(false); setInstallPrompt(null); });
+                } else setShowAndroidGuide(true);
             };
 
             const triggerToast = (content) => {
@@ -328,10 +298,6 @@
 
             const registerPush = async (uid) => {
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-                // iOS 必须要有用户交互才能请求权限，我们在登录或点击按钮时触发
-                if (Notification.permission === 'default') {
-                    // 不自动弹，等待用户点击
-                }
                 try {
                     const reg = await navigator.serviceWorker.ready;
                     let sub = await reg.pushManager.getSubscription();
@@ -345,27 +311,19 @@
                 } catch (e) {}
             };
 
-            // 手动触发通知权限请求 (用于 iOS PWA)
             const requestNotificationPermission = async () => {
                 if (!('Notification' in window)) return;
                 const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    registerPush(userId);
-                    alert("✅ 离线通知已开启！刷视频时也能收到消息了。");
-                }
+                if (permission === 'granted') { registerPush(userId); alert("✅ 离线通知已开启！"); }
             };
 
             useEffect(() => {
-                const unlockAudio = () => {
-                    const a = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABBlYXRhAgAAAAEA"); a.play().catch(()=>{});
-                };
+                const unlockAudio = () => { const a = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABBlYXRhAgAAAAEA"); a.play().catch(()=>{}); };
                 document.body.addEventListener('click', unlockAudio, { once: true });
                 document.body.addEventListener('touchstart', unlockAudio, { once: true });
             }, [userId]);
 
-            const flashTitle = (start) => {
-                if (start) { document.title = "【🔔 新消息】汇盈国际"; } else { document.title = "汇盈国际官方客服"; }
-            };
+            const flashTitle = (start) => { if (start) { document.title = "【🔔 新消息】汇盈国际"; } else { document.title = "汇盈国际官方客服"; } };
 
             useEffect(() => {
                 const handleVisibility = () => {
@@ -380,23 +338,31 @@
                 return () => document.removeEventListener('visibilitychange', handleVisibility);
             }, []);
 
-            useEffect(() => {
-                if (messagesEndRef.current) {
-                    messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-                }
-            }, [messages, adminTyping, step]);
+            useEffect(() => { if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages, adminTyping, step]);
 
             const fetchMessages = (uid) => { fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); }); };
             
             const doLogin = (uid, bid) => { 
                 if(socketRef.current) socketRef.current.disconnect(); 
                 setUserId(uid); setBossId(bid); setStep('chat'); 
+                
+                // 确保两项都存入缓存
                 localStorage.setItem('hy_uid', uid);
                 localStorage.setItem('hy_boss', bid);
                 
                 initSocket(uid, bid); 
-                // 登录成功后，尝试注册推送
-                registerPush(uid);
+                registerPush(uid); 
+            };
+            
+            // ⚡️ 核心修复：立即下线逻辑
+            const forceLogoutNow = (reason) => {
+                localStorage.removeItem('hy_uid');
+                // localStorage.removeItem('hy_boss'); // 可选：保留老板ID以便下次登录方便，或者也清空
+                setMessages([]);
+                setUserId('');
+                setStep('login'); // 立即切回登录页，不重载页面，体验更顺滑
+                if(socketRef.current) socketRef.current.disconnect();
+                if(reason) alert(reason);
             };
 
             const initSocket = (uid, bid) => {
@@ -405,45 +371,29 @@
                     socketRef.current.on('connect', () => socketRef.current.emit('join', { userId: uid, bossId: bid }));
                     
                     socketRef.current.on('receive_message', (msg) => {
-                        setMessages(prev => { 
-                            if (prev.some(m => m.id === msg.id)) return prev;
-                            return [...prev, msg]; 
-                        });
-                        
+                        setMessages(prev => { if (prev.some(m => m.id === msg.id)) return prev; return [...prev, msg]; });
                         if(!msg.isFromUser) { 
                             triggerToast(msg.content); 
                             try { const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200]); } catch(e){} 
                             if(document.hidden) flashTitle(true);
-
                             setAdminTyping(false);
                             if (document.visibilityState === 'visible') socketRef.current.emit('mark_read', { userId: uid, isAdmin: false }); 
                         }
                     });
                     
                     socketRef.current.on('message_deleted', ({ messageId }) => setMessages(prev => prev.filter(m => m.id !== messageId)));
-                    
                     socketRef.current.on('display_typing', ({ isTyping }) => { 
                         setAdminTyping(isTyping); 
                         if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
                         if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000);
                     });
-
                     socketRef.current.on('messages_read_update', () => setMessages(prev => prev.map(m => m.isFromUser ? { ...m, status: 'read' } : m)));
                     
-                    socketRef.current.on('force_logout', () => { 
-                        localStorage.clear(); 
-                        alert("⚠️ 您的会话已结束（账号已重置）");
-                        location.reload(); 
-                    });
-                    
-                    socketRef.current.on('force_logout_blocked', () => { 
-                        localStorage.clear(); 
-                        document.body.innerHTML = `<div style="display:flex;height:100vh;justify-content:center;align-items:center;background:#0f1621;color:#ff5252;font-weight:bold;">🚫 访问被拒绝</div>`; 
-                        socketRef.current.disconnect(); 
-                    });
-                    
-                    socketRef.current.on('admin_user_blocked', () => { localStorage.clear(); location.reload(); });
-                    socketRef.current.on('admin_db_cleared', () => { localStorage.clear(); location.reload(); });
+                    // ⚡️ 核心修复：监听各类强制下线事件
+                    socketRef.current.on('force_logout', () => forceLogoutNow("⚠️ 您的会话已结束"));
+                    socketRef.current.on('force_logout_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
+                    socketRef.current.on('admin_user_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
+                    socketRef.current.on('admin_db_cleared', () => forceLogoutNow("⚠️ 系统维护，请重新连接"));
 
                     fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); });
                 } catch (e) {}
@@ -451,39 +401,25 @@
 
             const handleLoginBtn = () => { 
                 setErrorMsg(''); setLoading(true);
-                
                 if (showRecover) {
                     const rid = recoverId.trim();
                     if (!rid) { setErrorMsg('请输入旧 ID'); setLoading(false); return; }
-                    
-                    fetch(`${SOCKET_URL}/api/user/check`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ userId: rid })
-                    }).then(r => r.json()).then(data => {
+                    fetch(`${SOCKET_URL}/api/user/check`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: rid }) }).then(r => r.json()).then(data => {
                         setLoading(false);
-                        if (data.exists) {
-                            doLogin(rid, '@SystemRestore');
-                        } else { setErrorMsg('ID 不存在'); }
-                    }).catch(() => {
-                        setLoading(false);
-                        setErrorMsg('网络连接失败');
-                    });
+                        if (data.exists) doLogin(rid, '@SystemRestore');
+                        else setErrorMsg('ID 不存在');
+                    }).catch(() => { setLoading(false); setErrorMsg('网络连接失败'); });
                     return;
                 }
-
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 const validBosses = ['rrii8', 'iibb8']; 
                 if (validBosses.includes(input)) { 
                     const tempSocket = io(SOCKET_URL); 
                     tempSocket.emit('request_id', '@'+input, (newId) => { 
-                        tempSocket.disconnect(); 
-                        setLoading(false); 
+                        tempSocket.disconnect(); setLoading(false); 
                         doLogin(newId, '@'+input); 
                     }); 
-                } else { 
-                    setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400);
-                } 
+                } else { setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); } 
             };
             
             const handleTyping = (e) => { 
@@ -494,11 +430,6 @@
             const handleSend = () => { 
                 if (!chatInput.trim()) return; 
                 const msgData = { userId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent' }; 
-                
-                // 🔧 修复3: 文本消息移除本地 setMessages，完全信赖 socket 'receive_message' 回传
-                // 这样就绝对不会出现“发一条显示两条”的情况了
-                // setMessages(prev => [...prev, msgData]);  <-- 这行删掉
-                
                 socketRef.current.emit('send_message', msgData); 
                 socketRef.current.emit('typing', { targetId: 'admin', isTyping: false });
                 setChatInput(''); 
@@ -507,25 +438,17 @@
             const handleImageUpload = async (e) => { 
                 const file = e.target.files[0]; 
                 if (!file) return; 
-                
-                // 图片保持本地预览（为了流畅体验）
                 const previewUrl = URL.createObjectURL(file);
                 const tempId = Date.now();
                 const tempMsg = { id: tempId, userId, content: previewUrl, type: 'image', isFromUser: true, status: 'sending', createdAt: new Date() };
                 setMessages(prev => [...prev, tempMsg]);
-                
                 e.target.value = ''; 
-
                 setTimeout(async () => {
                     try { 
                         const base64 = await compressImage(file);
                         socketRef.current.emit('send_message', { ...tempMsg, content: base64 });
-                        // 图片不依赖服务器回传更新状态，直接本地更新，避免闪烁
                         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
-                    } catch(e) { 
-                        alert("图片处理失败"); 
-                        setMessages(prev => prev.filter(m => m.id !== tempId));
-                    } 
+                    } catch(e) { alert("图片处理失败"); setMessages(prev => prev.filter(m => m.id !== tempId)); } 
                 }, 10);
             };
 
@@ -600,16 +523,13 @@
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
                             <div>
-                                <h3 className="font-bold text-sm">汇盈国际客服</h3>
+                                <h3 className="font-bold text-sm">客服 ({bossId.replace('@','')})</h3>
                                 <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            {/* 只有 iOS PWA 模式下显示开启通知按钮 */}
                             {isIos && isStandalone && Notification.permission === 'default' && (
-                                <button onClick={requestNotificationPermission} className="bg-green-600/20 text-green-400 text-xs px-3 py-1.5 rounded-full border border-green-500/30 animate-pulse">
-                                    开启通知
-                                </button>
+                                <button onClick={requestNotificationPermission} className="bg-green-600/20 text-green-400 text-xs px-3 py-1.5 rounded-full border border-green-500/30 animate-pulse">开启通知</button>
                             )}
                             {!isStandalone && <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>}
                             <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
@@ -634,7 +554,6 @@
                                 </div>
                             </div>
                         ))}
-                        
                         {adminTyping && <div className="bg-tg-secondary px-3 py-2 rounded-xl w-12 flex gap-1 ml-1 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
                         <div ref={messagesEndRef} />
                     </div>
