@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    
     <meta name="theme-color" content="#0f1621">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
+    
     <title>汇盈国际官方客服</title>
     
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://cdn.socket.io">
+
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
     <link rel="apple-touch-startup-image" href="/icon-512.png">
@@ -44,6 +50,7 @@
         }
     </script>
     <style>
+        /* 🔧 iOS 终极防白屏 & 防重影配置 */
         #app-background {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-image: url('https://web.telegram.org/img/bg_0.png');
@@ -89,6 +96,7 @@
         const { useState, useEffect, useRef } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
+        // 核心 Hook: 处理 iOS 高度和键盘
         const useAppHeight = () => {
             useEffect(() => {
                 const setHeight = () => {
@@ -100,20 +108,9 @@
                     }
                 };
                 setHeight();
-                if (window.visualViewport) {
-                    window.visualViewport.addEventListener('resize', setHeight);
-                    window.visualViewport.addEventListener('scroll', setHeight);
-                }
                 window.addEventListener('resize', setHeight);
-                window.addEventListener('orientationchange', setHeight);
-                return () => {
-                    if (window.visualViewport) {
-                        window.visualViewport.removeEventListener('resize', setHeight);
-                        window.visualViewport.removeEventListener('scroll', setHeight);
-                    }
-                    window.removeEventListener('resize', setHeight);
-                    window.removeEventListener('orientationchange', setHeight);
-                };
+                if (window.visualViewport) window.visualViewport.addEventListener('resize', setHeight);
+                return () => window.removeEventListener('resize', setHeight);
             }, []);
         };
 
@@ -148,6 +145,7 @@
             return <span className="text-gray-400 text-[10px] ml-1">✓</span>;
         };
         
+        // 营业时间判断逻辑
         const getWorkStatus = () => {
             const now = new Date();
             const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -157,18 +155,18 @@
             return { isWorking, text: isWorking ? '当前业务员繁忙' : '休息中 (请留言)', color: isWorking ? 'text-green-400' : 'text-tg-warning' };
         };
 
-        // 🔧 新增：顶部 Toast 通知组件
-        const TopToast = ({ message, visible }) => {
-            if (!visible || !message) return null;
+        // 顶部黑色消息通知组件 (仿微信)
+        const TopToast = ({ msg, show }) => {
+            if (!show) return null;
             return (
                 <div className="fixed top-4 left-4 right-4 z-[999] pointer-events-none animate-slide-down-toast">
-                    <div className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="bg-black/85 backdrop-blur-md border border-white/10 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-green-500 to-green-600 flex items-center justify-center shrink-0">
-                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                            <span className="text-xs font-bold">HY</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm truncate">新消息</p>
-                            <p className="text-xs text-gray-200 truncate">{message}</p>
+                            <p className="font-bold text-sm text-gray-200">新消息</p>
+                            <p className="text-xs text-white truncate">{msg}</p>
                         </div>
                     </div>
                 </div>
@@ -188,15 +186,18 @@
             const [bossId, setBossId] = useState('');
             const [messages, setMessages] = useState([]);
             const [chatInput, setChatInput] = useState('');
-            const [showTutorial, setShowTutorial] = useState(false);
             const [errorMsg, setErrorMsg] = useState('');
             const [isShake, setIsShake] = useState(false);
+            
+            // 完整功能状态
             const [workStatus, setWorkStatus] = useState(getWorkStatus());
             const [previewImg, setPreviewImg] = useState(null);
             const [adminTyping, setAdminTyping] = useState(false);
+            const [showTutorial, setShowTutorial] = useState(false);
             
-            // 🔧 消息提醒 Toast 状态
+            // 消息弹窗状态
             const [toast, setToast] = useState({ show: false, msg: '' });
+            const toastTimer = useRef(null);
             
             const [installPrompt, setInstallPrompt] = useState(null); 
             const [canInstall, setCanInstall] = useState(false);
@@ -206,13 +207,12 @@
             const socketRef = useRef(null);
             const scrollRef = useRef(null);
             const typingTimeoutRef = useRef(null);
-            const toastTimeoutRef = useRef(null);
 
             useEffect(() => {
                 setTimeout(() => {
                     const splash = document.getElementById('splash-screen');
                     if(splash) { splash.style.opacity = '0'; setTimeout(()=>splash.remove(), 500); }
-                }, 1200);
+                }, 800); 
 
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
                 window.addEventListener('beforeinstallprompt', (e) => { 
@@ -221,8 +221,13 @@
                     setCanInstall(true); 
                 });
                 
+                // 定时刷新营业状态
+                const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
+                
                 const savedId = localStorage.getItem('hy_uid');
                 if (savedId && !userId) setRecoverId(savedId); 
+                
+                return () => clearInterval(timer);
             }, []);
 
             const handleInstallAction = () => {
@@ -240,13 +245,20 @@
                 }
             };
 
-            // 🔧 注册推送逻辑 (请求权限)
+            const triggerToast = (content) => {
+                const txt = content.startsWith('data:') || content.startsWith('blob:') ? '[图片]' : content;
+                setToast({ show: true, msg: txt });
+                if (toastTimer.current) clearTimeout(toastTimer.current);
+                toastTimer.current = setTimeout(() => setToast({ show: false, msg: '' }), 3000);
+            };
+
             const registerPush = async (uid) => {
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
                 
-                // 显式请求权限 (iOS 要求必须是用户点击事件触发，所以放在登录按钮里最好，这里做二次检查)
-                const permission = await Notification.requestPermission();
-                if (permission !== 'granted') return;
+                // 尝试请求权限
+                if (Notification.permission === 'default') {
+                    await Notification.requestPermission();
+                }
 
                 try {
                     const reg = await navigator.serviceWorker.ready;
@@ -258,24 +270,16 @@
                         sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
                     }
                     await fetch(`${SOCKET_URL}/api/subscribe`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: uid, subscription: sub }) });
-                } catch (e) {
-                    console.error('Push Reg Error', e);
-                }
+                } catch (e) {}
             };
 
             useEffect(() => {
-                // 播放解锁音频，规避浏览器限制
                 const unlockAudio = () => {
                     const a = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABBlYXRhAgAAAAEA"); a.play().catch(()=>{});
-                    // 在这里也尝试请求权限
-                    if("Notification" in window && Notification.permission === "default") Notification.requestPermission();
                 };
                 document.body.addEventListener('click', unlockAudio, { once: true });
                 document.body.addEventListener('touchstart', unlockAudio, { once: true });
-                
-                const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
-                return () => clearInterval(timer);
-            }, []);
+            }, [userId]);
 
             const flashTitle = (start) => {
                 if (start) { document.title = "【🔔 新消息】汇盈国际"; } else { document.title = "汇盈国际官方客服"; }
@@ -299,28 +303,13 @@
 
             useEffect(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, adminTyping]);
 
-            // 🔧 触发通知 (包括震动、声音、顶部横幅)
-            const triggerNotification = (content) => {
-                // 1. 声音
-                try { const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200]); } catch(e){} 
-                
-                // 2. 标题闪烁
-                if(document.hidden) flashTitle(true);
-
-                // 3. 🔧 顶部 Toast 弹窗 (类似微信)
-                const msgText = content.startsWith('data:image') || content.startsWith('blob:') ? '[图片]' : content;
-                setToast({ show: true, msg: msgText });
-                
-                // 3秒后自动消失
-                if(toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-                toastTimeoutRef.current = setTimeout(() => setToast({ show: false, msg: '' }), 3000);
-            };
-
             const fetchMessages = (uid) => { fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); }); };
             
             const doLogin = (uid, bid) => { 
                 if(socketRef.current) socketRef.current.disconnect(); 
-                setUserId(uid); setBossId(bid); setStep('chat'); initSocket(uid, bid); registerPush(uid); 
+                setUserId(uid); setBossId(bid); setStep('chat'); 
+                initSocket(uid, bid); 
+                registerPush(uid); // 登录后自动注册推送
             };
 
             const initSocket = (uid, bid) => {
@@ -330,50 +319,58 @@
                     
                     socketRef.current.on('receive_message', (msg) => {
                         setMessages(prev => { 
-                            const exists = prev.findIndex(m => m.id === msg.id);
-                            if (exists !== -1) {
-                                const old = prev[exists];
-                                if (old.content.startsWith('blob:') && msg.type === 'image') {
-                                    return prev.map(m => m.id === msg.id ? { ...msg, content: old.content, status: 'sent' } : m);
-                                }
-                                return prev; 
-                            }
+                            if (prev.some(m => m.id === msg.id)) return prev;
                             return [...prev, msg]; 
                         });
-                        // 🔧 这里触发通知
+                        
                         if(!msg.isFromUser) { 
-                            triggerNotification(msg.content); 
-                            setAdminTyping(false); 
+                            triggerToast(msg.content); 
+                            
+                            // 声音提示
+                            try { const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200]); } catch(e){} 
+                            if(document.hidden) flashTitle(true);
+
+                            setAdminTyping(false);
                             if (document.visibilityState === 'visible') socketRef.current.emit('mark_read', { userId: uid, isAdmin: false }); 
                         }
                     });
                     
                     socketRef.current.on('message_deleted', ({ messageId }) => setMessages(prev => prev.filter(m => m.id !== messageId)));
-                    socketRef.current.on('display_typing', ({ isTyping }) => { setAdminTyping(isTyping); if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000); });
+                    
+                    // 管理员正在输入
+                    socketRef.current.on('display_typing', ({ isTyping }) => { 
+                        setAdminTyping(isTyping); 
+                        if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                        if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000);
+                    });
+
                     socketRef.current.on('messages_read_update', () => setMessages(prev => prev.map(m => m.isFromUser ? { ...m, status: 'read' } : m)));
                     
-                    socketRef.current.on('force_logout', () => { localStorage.clear(); location.reload(); });
-                    socketRef.current.on('force_logout_blocked', () => { localStorage.clear(); document.body.innerHTML = `<div style="display:flex;height:100vh;justify-content:center;align-items:center;background:#0f1621;color:#ff5252;font-weight:bold;">🚫 访问被拒绝</div>`; socketRef.current.disconnect(); });
+                    // 强制下线监听 (删除/清空)
+                    socketRef.current.on('force_logout', () => { 
+                        localStorage.clear(); 
+                        alert("⚠️ 您的会话已结束（账号已重置）");
+                        location.reload(); 
+                    });
+                    
+                    socketRef.current.on('force_logout_blocked', () => { 
+                        localStorage.clear(); 
+                        document.body.innerHTML = `<div style="display:flex;height:100vh;justify-content:center;align-items:center;background:#0f1621;color:#ff5252;font-weight:bold;">🚫 访问被拒绝</div>`; 
+                        socketRef.current.disconnect(); 
+                    });
+                    
                     socketRef.current.on('admin_user_blocked', () => { localStorage.clear(); location.reload(); });
                     socketRef.current.on('admin_db_cleared', () => { localStorage.clear(); location.reload(); });
-                    
-                    fetchMessages(uid);
+
+                    fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); });
                 } catch (e) {}
             };
 
             const handleLoginBtn = () => { 
-                // 🔧 登录时强制请求通知权限 (关键)
-                if("Notification" in window) {
-                    Notification.requestPermission().then(permission => {
-                        if(permission === 'granted') {
-                            // 可以在这里注册推送，但我们在 doLogin 里已经做了
-                        }
-                    });
-                }
-
-                setErrorMsg('');
-                setLoading(true); 
+                if("Notification" in window) Notification.requestPermission();
+                setErrorMsg(''); setLoading(true);
                 
+                // 找回账号逻辑
                 if (showRecover) {
                     const rid = recoverId.trim();
                     if (!rid) { setErrorMsg('请输入旧 ID'); setLoading(false); return; }
@@ -385,44 +382,45 @@
                     }).then(r => r.json()).then(data => {
                         setLoading(false);
                         if (data.exists) {
-                            const finalBossId = '@SystemRestore';
                             localStorage.setItem('hy_uid', rid);
-                            localStorage.setItem('hy_boss', finalBossId);
-                            doLogin(rid, finalBossId);
-                        } else {
-                            setErrorMsg('该 ID 不存在');
-                            alert('❌ 错误：该 ID 不存在，请检查是否输入正确');
-                            setIsShake(true); setTimeout(() => setIsShake(false), 400);
-                        }
+                            doLogin(rid, '@SystemRestore');
+                        } else { setErrorMsg('ID 不存在'); }
                     }).catch(() => {
                         setLoading(false);
                         setErrorMsg('网络连接失败');
-                        alert('⚠️ 网络连接失败，请检查网络');
                     });
                     return;
                 }
 
+                // 正常注册逻辑
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 const validBosses = ['rrii8', 'iibb8']; 
                 if (validBosses.includes(input)) { 
-                    const finalBossId = '@' + input; 
                     const tempSocket = io(SOCKET_URL); 
-                    tempSocket.emit('request_id', finalBossId, (newId) => { 
+                    tempSocket.emit('request_id', '@'+input, (newId) => { 
                         localStorage.setItem('hy_uid', newId); 
-                        localStorage.setItem('hy_boss', finalBossId); 
-                        tempSocket.disconnect(); 
-                        setLoading(false);
-                        doLogin(newId, finalBossId); 
+                        tempSocket.disconnect(); setLoading(false); doLogin(newId, '@'+input); 
                     }); 
                 } else { 
-                    setLoading(false);
-                    setErrorMsg(''); setTimeout(() => { setErrorMsg('未找到该老板用户名，请核对广告信息带@的TG用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); }, 10); 
+                    setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400);
                 } 
             };
             
-            const handleTyping = (e) => { setChatInput(e.target.value); socketRef.current.emit('typing', { targetId: 'admin', isTyping: true }); if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = setTimeout(() => { socketRef.current.emit('typing', { targetId: 'admin', isTyping: false }); }, 2000); };
-            const handleSend = () => { if (!chatInput.trim()) return; const msgData = { userId, bossId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent' }; setMessages(prev => [...prev, msgData]); socketRef.current.emit('send_message', msgData); socketRef.current.emit('typing', { targetId: 'admin', isTyping: false }); setChatInput(''); };
+            const handleTyping = (e) => { 
+                setChatInput(e.target.value); 
+                if(socketRef.current) socketRef.current.emit('typing', { targetId: 'admin', isTyping: true });
+            };
+
+            const handleSend = () => { 
+                if (!chatInput.trim()) return; 
+                const msgData = { userId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent' }; 
+                setMessages(prev => [...prev, msgData]); 
+                socketRef.current.emit('send_message', msgData); 
+                socketRef.current.emit('typing', { targetId: 'admin', isTyping: false });
+                setChatInput(''); 
+            };
             
+            // 图片发送 (Blob 预览)
             const handleImageUpload = async (e) => { 
                 const file = e.target.files[0]; 
                 if (!file) return; 
@@ -432,12 +430,25 @@
                 setMessages(prev => [...prev, tempMsg]);
                 e.target.value = ''; 
                 try { 
-                    const compressedBase64 = await compressImage(file); 
-                    socketRef.current.emit('send_message', { ...tempMsg, content: compressedBase64 });
-                    setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = (ev) => {
+                        const img = new Image(); img.src = ev.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+                            let w = img.width, h = img.height; const maxSide = 1280; 
+                            if (Math.max(w, h) > maxSide) { const scale = maxSide / Math.max(w, h); w *= scale; h *= scale; }
+                            canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h);
+                            const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                            socketRef.current.emit('send_message', { ...tempMsg, content: base64 });
+                            setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
+                        }
+                    }
                 } catch(e) { alert("图片处理失败"); } 
             };
 
+            useEffect(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, adminTyping]);
+
+            // 教程弹窗组件
             const GuideModal = ({ title, children, onClose }) => (
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center pb-8" onClick={onClose}>
                     <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-5 rounded-2xl max-w-sm w-full mx-4 animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
@@ -449,7 +460,7 @@
                             <div className="bg-blue-900/30 border border-blue-500/30 p-3 rounded-lg mb-4">
                                 <p className="text-blue-200 text-xs mb-1">您的恢复 ID (请截图):</p>
                                 <p className="text-white font-mono text-xl font-bold select-all">{userId}</p>
-                                <p className="text-gray-400 text-[10px] mt-1">安装 App 后，使用此 ID 找回聊天记录</p>
+                                <p className="text-gray-400 text-[10px] mt-1">安装 App 后，使用此 ID 找回记录</p>
                             </div>
                         )}
                         <div className="text-left text-xs text-gray-400 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
@@ -461,7 +472,7 @@
             if (step === 'login') return (
                 <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg" style={{height:'var(--app-height)'}}>
                     <div className="z-10 w-full max-w-[340px] mx-auto">
-                        <h1 className="text-[34px] font-black text-white mb-2 tracking-tight">汇盈国际官方客服</h1>
+                        <h1 className="text-[34px] font-black text-white mb-2">汇盈国际官方客服</h1>
                         <p className="text-gray-400 text-[15px] mb-8 font-medium">请输入广告中老板的 <span className="text-login-textSub font-bold">Telegram 用户名</span></p>
                         <div className="mb-6 flex items-start gap-2.5">
                             <span className="text-yellow-500 text-sm mt-0.5">⚠️</span>
@@ -477,7 +488,7 @@
                             {showRecover && (
                                 <div className="relative group animate-fade-in">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 text-lg">🆔</span></div>
-                                    <input type="text" value={recoverId} onChange={(e) => setRecoverId(e.target.value)} className="w-full bg-login-input border border-gray-700 focus:border-blue-600 rounded-xl py-4 pl-10 pr-4 text-white outline-none" placeholder="输入旧ID (在网页的app按键里有显示)" />
+                                    <input type="text" value={recoverId} onChange={(e) => setRecoverId(e.target.value)} className="w-full bg-login-input border border-gray-700 focus:border-blue-600 rounded-xl py-4 pl-10 pr-4 text-white outline-none" placeholder="输入旧ID (网页的app按键里有显示)" />
                                 </div>
                             )}
                             <div className="min-h-[24px]">{errorMsg && (<div className={`text-login-textErr text-[13px] font-bold flex items-center gap-1.5 ${isShake ? 'animate-shake' : ''}`}>{errorMsg}</div>)}</div>
@@ -491,7 +502,7 @@
                                     {canInstall ? "📲 一键安装APP" : "📲 开启离线通知"}
                                 </button>
                                 <button onClick={() => setShowRecover(!showRecover)} className="text-gray-500 text-xs hover:text-gray-300 underline decoration-dotted">
-                                    {showRecover ? '返回注册' : '找回旧账号'}
+                                    {showRecover ? '返回注册' : '找回旧账号?'}
                                 </button>
                             </div>
                             <div className="text-center pt-2 opacity-60">
@@ -509,46 +520,51 @@
 
             return (
                 <div className="flex flex-col bg-tg-bg max-w-md mx-auto shadow-2xl relative w-full" style={{height:'var(--app-height)'}}>
-                    <TopToast message={toast.msg} visible={toast.show} /> 
-                    <header className="w-full bg-tg-header text-white pt-safe flex-shrink-0 z-50 border-b border-white/5">
-                        <div className="h-14 flex items-center justify-between px-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">HY</div>
-                                <div><h3 className="font-bold text-sm text-white">汇盈国际官方客服</h3><p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p></div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>
-                                <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
+                    <TopToast msg={toast.msg} show={toast.show} />
+                    <header className="w-full bg-tg-header text-white pt-safe flex-shrink-0 z-50 border-b border-white/5 h-14 flex items-center justify-between px-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
+                            <div>
+                                <h3 className="font-bold text-sm">汇盈国际客服</h3>
+                                <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
                             </div>
                         </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>
+                            <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
+                        </div>
                     </header>
+
                     <div className="flex-1 ios-scroll p-4 space-y-3 bg-transparent overflow-y-auto">
                         <div className="text-center py-2 animate-fade-in">
                             <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallAction}>
-                                🔔 点此开启「离线通知」，避免收不到业务员的回复 >
+                                🔔 点此开启「离线通知」，避免收不到回复 >
                             </p>
                         </div>
                         {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-4">正在建立加密连接...</div>}
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                                <div className={`px-3 py-2.5 rounded-2xl text-sm shadow-sm relative break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
+                                <div className={`px-3 py-2.5 rounded-2xl text-sm max-w-[260px] break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
                                     {(msg.type === 'image' || msg.content.startsWith('data:') || msg.content.startsWith('blob:')) ? 
                                         <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> 
-                                        : <p className="whitespace-pre-wrap leading-relaxed max-w-[260px]">{msg.content}</p>
+                                        : msg.content
                                     }
                                     <div className="flex justify-end items-center gap-1 mt-1"><span className="text-[10px] opacity-50">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>{msg.isFromUser && <IconStatus status={msg.status} />}</div>
                                 </div>
                             </div>
                         ))}
+                        
                         {adminTyping && <div className="bg-tg-secondary px-3 py-2 rounded-xl w-12 flex gap-1 ml-1 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
                         <div ref={scrollRef} />
                     </div>
-                    <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-end">
-                        <label className="p-2 text-gray-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
+
+                    <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-center">
+                        <label className="text-gray-400 p-2"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
                         <textarea rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-transparent text-white text-sm p-2 outline-none" placeholder="输入消息..."></textarea>
-                        <button onClick={handleSend} disabled={!chatInput.trim()} className="p-2 rounded-xl text-white bg-tg-accent shadow-lg"><svg className="w-5 h-5 rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg></button>
+                        <button onClick={handleSend} className="p-2 rounded-xl text-white bg-tg-accent">发送</button>
                     </div>
                     {previewImg && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md" onClick={() => setPreviewImg(null)}><img src={previewImg} className="max-w-screen max-h-screen object-contain" /></div>}
+                    
                     {showTutorial && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowTutorial(false)}>
                             <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-5" onClick={e => e.stopPropagation()}>
@@ -558,6 +574,7 @@
                             </div>
                         </div>
                     )}
+                    
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
                     {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
