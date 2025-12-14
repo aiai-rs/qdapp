@@ -1,4 +1,4 @@
-// sw.js - Service Worker (负责后台推送)
+// sw.js - Service Worker (负责后台推送 & 修复弹窗)
 
 self.addEventListener('install', (event) => {
     self.skipWaiting(); // 强制立即生效
@@ -19,17 +19,26 @@ self.addEventListener('push', (event) => {
         data = { title: '新消息', body: event.data.text() };
     }
 
+    const title = data.title || '汇盈国际客服';
+
     const options = {
-        body: data.body,
-        icon: '/icon-192.png', // 确保你有这个图标
-        badge: '/icon-192.png', // 安卓状态栏小图标
-        vibrate: [200, 100, 200], // 震动模式
-        data: { url: data.url || '/' },
-        requireInteraction: true // 保持弹窗直到用户点击
+        body: data.body || '您收到了一条新消息',
+        
+        // === 图标设置 ===
+        icon: '/icon-192.png', // 侧边大图
+        badge: '/badge.png',   // 【重要】状态栏小图标 (必须是透明背景白色线条，否则安卓会显示白块)
+        
+        // === 强制弹窗设置 ===
+        vibrate: [200, 100, 200], // 震动：震200ms, 停100ms, 震200ms
+        tag: 'im-msg',            // 消息分组，避免重复
+        renotify: true,           // 【重要】设为true，确保每条新消息都震动+弹窗
+        requireInteraction: true, // 保持通知显示，直到用户点击
+        
+        data: { url: data.url || '/' }
     };
 
     event.waitUntil(
-        self.registration.showNotification(data.title || '汇盈国际客服', options)
+        self.registration.showNotification(title, options)
     );
 });
 
@@ -41,13 +50,13 @@ self.addEventListener('notificationclick', (event) => {
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             // 如果 App 已经打开，直接聚焦
             for (const client of clientList) {
-                if (client.url.includes('/') && 'focus' in client) {
+                if (client.url && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // 如果没打开，打开 PWA
+            // 如果没打开，打开 PWA 主页
             if (clients.openWindow) {
-                return clients.openWindow('/');
+                return clients.openWindow(event.notification.data.url || '/');
             }
         })
     );
