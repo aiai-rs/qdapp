@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     
-    <meta name="theme-color" content="#17212b">
+    <meta name="theme-color" content="#0f1621">
+    <meta name="background-color" content="#0f1621">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
@@ -13,7 +14,6 @@
     
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
-    <link rel="apple-touch-startup-image" href="/icon-512.png">
     <link rel="preload" href="/icon-192.png" as="image">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,29 +40,53 @@
         }
     </script>
     <style>
-        /* 🔧 iOS FIX: 根样式强制深色，彻底消灭白屏 */
-        :root { --app-height: 100%; }
+        /* --- 🔧 iOS 终极适配样式 --- */
+        
+        /* 1. 强制深色背景 (防白屏核心) */
         html { background-color: #0f1621; }
         body { 
             background-color: #0f1621; 
-            height: 100%; width: 100%; margin: 0; padding: 0; 
-            overflow: hidden; overscroll-behavior: none; 
+            margin: 0; padding: 0; 
+            width: 100%; height: 100%; 
+            overflow: hidden; 
+            overscroll-behavior: none; /* 禁止橡皮筋 */
             -webkit-tap-highlight-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        
+
+        /* 2. 动态高度变量 */
+        :root { --app-height: 100%; }
+
+        /* 3. 根容器布局 */
         #root { 
             width: 100%; 
             height: var(--app-height); 
             display: flex; 
             flex-direction: column; 
             position: relative; 
+            z-index: 1; /* 保证在背景图之上 */
+        }
+
+        /* 4. 修复重影的关键：背景图独立分层，不随内容滚动 */
+        #app-background {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('https://web.telegram.org/img/bg_0.png'); 
+            background-repeat: repeat; 
+            z-index: 0; /* 在最底层 */
+            pointer-events: none; /* 不干扰点击 */
+        }
+
+        /* 5. 滚动容器优化 */
+        .ios-scroll { 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; /* 开启惯性滚动 */
+            overscroll-behavior-y: contain; 
+            transform: translateZ(0); /* 开启硬件加速，进一步防重影 */
         }
         
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .ios-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
         
-        .bg-pattern { background-image: url('https://web.telegram.org/img/bg_0.png'); background-repeat: repeat; background-attachment: fixed; }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         .pt-safe { padding-top: env(safe-area-inset-top); }
         
@@ -73,6 +97,8 @@
     </style>
 </head>
 <body oncontextmenu="return false">
+    <div id="app-background"></div>
+
     <div id="splash-screen">
         <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-2xl animate-pulse-fast mb-4">
             <span class="text-white font-black text-2xl">HY</span>
@@ -87,24 +113,30 @@
         const { useState, useEffect, useRef } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
-        // 🔧 iOS FIX: 键盘防顶起 + 高度计算
+        // --- 核心适配 Hook ---
         const useAppHeight = () => {
             useEffect(() => {
                 const setHeight = () => {
+                    // 优先用 visualViewport 确保键盘弹出时高度正确
                     const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
                     document.documentElement.style.setProperty('--app-height', `${h}px`);
+                    
+                    // iOS 键盘弹起时强制复位滚动条，防止页面乱跳
                     if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
                         window.scrollTo(0, 0);
                         document.body.scrollTop = 0;
                     }
                 };
+                
                 setHeight();
+                
                 if (window.visualViewport) {
                     window.visualViewport.addEventListener('resize', setHeight);
                     window.visualViewport.addEventListener('scroll', setHeight);
                 }
                 window.addEventListener('resize', setHeight);
                 window.addEventListener('orientationchange', setHeight);
+                
                 return () => {
                     if (window.visualViewport) {
                         window.visualViewport.removeEventListener('resize', setHeight);
@@ -197,7 +229,6 @@
                     setCanInstall(true); 
                 });
                 
-                // 尝试预加载已有ID
                 const savedId = localStorage.getItem('hy_uid');
                 if (savedId && !userId) setRecoverId(savedId); 
             }, []);
@@ -324,7 +355,6 @@
             const handleTyping = (e) => { setChatInput(e.target.value); socketRef.current.emit('typing', { targetId: 'admin', isTyping: true }); if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = setTimeout(() => { socketRef.current.emit('typing', { targetId: 'admin', isTyping: false }); }, 2000); };
             const handleSend = () => { if (!chatInput.trim()) return; const msgData = { userId, bossId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent' }; setMessages(prev => [...prev, msgData]); socketRef.current.emit('send_message', msgData); socketRef.current.emit('typing', { targetId: 'admin', isTyping: false }); setChatInput(''); };
             
-            // 🔧 iOS FIX: 图片发送 - 乐观 UI (解决不显示问题)
             const handleImageUpload = async (e) => { 
                 const file = e.target.files[0]; 
                 if (!file) return; 
@@ -340,7 +370,6 @@
                     status: 'sending', 
                     createdAt: new Date() 
                 };
-                // 立即显示
                 setMessages(prev => [...prev, tempMsg]);
                 e.target.value = ''; 
 
@@ -382,7 +411,6 @@
                                 <input type="text" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLoginBtn()} className="w-full bg-login-input border border-gray-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 rounded-xl py-4 pl-10 pr-4 text-white outline-none transition-all placeholder-gray-500 text-[16px] shadow-sm font-medium" placeholder="输入广告中老板的TG用户名" />
                             </div>
                             
-                            {/* 🔧 iOS FIX: 找回 ID 输入框 */}
                             {showRecover && (
                                 <div className="relative group animate-fade-in">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 text-lg">🆔</span></div>
@@ -396,7 +424,6 @@
                                 {showRecover ? '恢复旧账号' : '连接汇盈国际官方业务员'} <span className="text-xl leading-none mb-0.5 ml-1">→</span>
                             </button>
                             
-                            {/* 🔧 iOS FIX: 显示当前 ID 提示，防止丢失 */}
                             {recoverId && !showRecover && (
                                 <div className="text-center text-gray-500 text-xs mt-2 bg-white/5 p-2 rounded">
                                     您的临时 ID: <span className="text-white font-mono font-bold select-all">{recoverId}</span> (请截图保存)
@@ -441,7 +468,7 @@
                         </div>
                     </header>
                     
-                    <div className="flex-1 ios-scroll p-4 space-y-3 bg-pattern overflow-y-auto">
+                    <div className="flex-1 ios-scroll p-4 space-y-3 bg-transparent overflow-y-auto">
                         <div className="text-center py-2 animate-fade-in">
                             <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallAction}>
                                 🔔 点此开启「离线推送」，避免收不到回复 >
@@ -451,7 +478,6 @@
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
                                 <div className={`px-3 py-2.5 rounded-2xl text-sm shadow-sm relative break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
-                                    {/* 🔧 iOS FIX: 图片渲染逻辑简化，确保 Blob/Base64 都能显示 */}
                                     {(msg.type === 'image' || msg.content.startsWith('data:') || msg.content.startsWith('blob:')) ? 
                                         <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> 
                                         : <p className="whitespace-pre-wrap leading-relaxed max-w-[260px]">{msg.content}</p>
