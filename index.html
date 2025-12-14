@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    
     <meta name="theme-color" content="#17212b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    
     <title>汇盈国际官方客服</title>
     
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="preload" href="/icon-192.png" as="image">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -22,35 +26,30 @@
             theme: {
                 extend: {
                     colors: { 
-                        tg: { bg: "#0f1621", header: "#17212b", input: "#0e1621", blue: "#2b5278", secondary: "#182533", accent: "#0088cc", danger: "#ff5252", warning: "#fb8c00", info: "#8774e1" },
-                        login: { bg: "#0b1016", card: "#161d27", input: "#161e29", textMain: "#ffffff", textSub: "#3b82f6", textWarn: "#ef4444", textErr: "#ff4b4b" }
+                        tg: { bg: "#0f1621", header: "#17212b", input: "#0e1621", blue: "#2b5278", secondary: "#182533", accent: "#0088cc", danger: "#ff5252", warning: "#fb8c00" },
+                        login: { bg: "#0b1016", card: "#161d27", input: "#161e29", textMain: "#ffffff", textSub: "#3b82f6", textWarn: "#ef4444" }
                     },
-                    animation: { 'slide-up': 'slideUp 0.3s ease-out forwards', 'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both', 'fade-in': 'fadeIn 0.3s forwards', 'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' },
+                    animation: { 'slide-up': 'slideUp 0.3s ease-out forwards', 'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite', 'fade-in': 'fadeIn 0.3s ease-out' },
                     keyframes: { 
-                        slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }, 
-                        shake: { '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' }, '20%, 80%': { transform: 'translate3d(2px, 0, 0)' }, '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' }, '40%, 60%': { transform: 'translate3d(4px, 0, 0)' } }, 
-                        fadeIn: { from: {opacity:0}, to:{opacity:1} } 
+                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }
                     }
                 }
             }
         }
     </script>
     <style>
-        /* --- 工程级布局适配 --- */
-        /* 使用 CSS 变量 --app-height 来控制高度，这是适配的关键 */
-        :root { --app-height: 100%; }
-        
+        /* 🔧 iOS FIX: 强制设置背景色，解决 PWA 启动瞬间白屏问题 */
         html, body { 
-            margin: 0; padding: 0; 
-            width: 100%; height: 100%; 
-            /* 禁止 body 滚动，防止 iOS 橡皮筋效果影响整体布局 */
-            overflow: hidden; 
-            overscroll-behavior: none; 
             background-color: #0f1621; 
+            height: 100%; width: 100%; margin: 0; padding: 0; 
+            overflow: hidden; overscroll-behavior: none; 
             -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         
-        /* 根容器：强制使用动态计算的高度，并使用 Flex Column 布局 */
+        :root { --app-height: 100%; }
+        
         #root { 
             width: 100%; 
             height: var(--app-height); 
@@ -60,19 +59,17 @@
         }
         
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* iOS 惯性滚动 */
-        .ios-scroll { 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-            overscroll-behavior-y: contain; 
-        }
+        /* 🔧 iOS FIX: 确保 iOS 滚动惯性 */
+        .ios-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
         
         .bg-pattern { background-image: url('https://web.telegram.org/img/bg_0.png'); background-repeat: repeat; background-attachment: fixed; }
+        
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         .pt-safe { padding-top: env(safe-area-inset-top); }
+        
         .glass-btn { background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
         .glass-btn:active { transform: scale(0.98); }
+        
         #splash-screen { position: fixed; inset: 0; background: #0f1621; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
     </style>
 </head>
@@ -91,18 +88,16 @@
         const { useState, useEffect, useRef } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
-        // --- 核心适配：动态计算视口高度 ---
-        // 这段代码会监听 visualViewport 和 resize，确保 --app-height 永远等于实际可见高度
-        // 从而解决 Android 地址栏伸缩、键盘弹起、PWA 模式下的高度不一致问题
         const useAppHeight = () => {
             useEffect(() => {
                 const setHeight = () => {
-                    // 优先使用 visualViewport (精度更高，支持键盘压缩)
                     const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
                     document.documentElement.style.setProperty('--app-height', `${h}px`);
-                    // 键盘弹起时，强制滚动到顶部，防止错位
-                    if(window.visualViewport && window.visualViewport.height < window.innerHeight) {
+                    
+                    /* 🔧 iOS FIX: 键盘弹起时，强制重置滚动位置，防止页面整体上移导致底部留白 */
+                    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
                         window.scrollTo(0, 0);
+                        document.body.scrollTop = 0;
                     }
                 };
                 
@@ -151,7 +146,11 @@
             });
         };
 
-        const IconStatus = ({ status }) => status === 'read' ? <span className="text-green-400 text-[10px] ml-1 font-bold">✓✓</span> : <span className="text-gray-400 text-[10px] ml-1">✓</span>;
+        const IconStatus = ({ status }) => {
+            if (status === 'sending') return <span className="text-gray-400 text-[10px] ml-1 animate-spin">⟳</span>;
+            if (status === 'read') return <span className="text-green-400 text-[10px] ml-1 font-bold">✓✓</span>;
+            return <span className="text-gray-400 text-[10px] ml-1">✓</span>;
+        };
         
         const getWorkStatus = () => {
             const now = new Date();
@@ -163,11 +162,13 @@
         };
 
         function App() {
-            // 启动高度监听
-            useAppHeight();
+            useAppHeight(); 
 
             const [step, setStep] = useState('loading'); 
             const [loginInput, setLoginInput] = useState('');
+            const [recoverId, setRecoverId] = useState('');
+            const [showRecover, setShowRecover] = useState(false);
+            
             const [userId, setUserId] = useState('');
             const [bossId, setBossId] = useState('');
             const [messages, setMessages] = useState([]);
@@ -179,8 +180,8 @@
             const [previewImg, setPreviewImg] = useState(null);
             const [adminTyping, setAdminTyping] = useState(false);
             
-            // PWA 安装状态
             const [installPrompt, setInstallPrompt] = useState(null); 
+            const [canInstall, setCanInstall] = useState(false);
             const [showIosGuide, setShowIosGuide] = useState(false);
             const [showAndroidGuide, setShowAndroidGuide] = useState(false);
             
@@ -189,23 +190,35 @@
             const typingTimeoutRef = useRef(null);
 
             useEffect(() => {
+                /* 🔧 iOS FIX: PWA localStorage 隔离问题说明 */
+                /* 注意：iOS Safari 与添加到主屏幕的 PWA (Standalone) 使用完全独立的存储沙盒。
+                   这意味着 Safari 的 localStorage 无法自动同步到 PWA。
+                   这是 iOS 系统级安全策略，无法通过代码修改。
+                   目前的解决方案是：用户需手动输入旧 ID (找回旧账号功能) */
+                
                 setTimeout(() => {
                     const splash = document.getElementById('splash-screen');
                     if(splash) { splash.style.opacity = '0'; setTimeout(()=>splash.remove(), 500); }
                 }, 1200);
 
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
-                window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setInstallPrompt(e); });
+                window.addEventListener('beforeinstallprompt', (e) => { 
+                    e.preventDefault(); 
+                    setInstallPrompt(e); 
+                    setCanInstall(true); 
+                });
             }, []);
 
-            // 软引导安装逻辑
-            const handleInstallClick = () => {
+            const handleInstallAction = () => {
                 const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
                 if (isIos) {
                     setShowIosGuide(true);
-                } else if (installPrompt) {
+                } else if (canInstall && installPrompt) {
                     installPrompt.prompt();
-                    installPrompt.userChoice.then((choiceResult) => { if (choiceResult.outcome === 'accepted') setInstallPrompt(null); });
+                    installPrompt.userChoice.then((res) => {
+                        if (res.outcome === 'accepted') setCanInstall(false);
+                        setInstallPrompt(null);
+                    });
                 } else {
                     setShowAndroidGuide(true);
                 }
@@ -235,7 +248,6 @@
                 };
                 document.body.addEventListener('click', unlockAudio, { once: true });
                 document.body.addEventListener('touchstart', unlockAudio, { once: true });
-                
                 const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
                 return () => clearInterval(timer);
             }, [userId]);
@@ -264,6 +276,7 @@
 
             const notify = () => { try { const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200]); } catch(e){} if(document.hidden) flashTitle(true); };
             const fetchMessages = (uid) => { fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); }); };
+            
             const doLogin = (uid, bid) => { setUserId(uid); setBossId(bid); setStep('chat'); initSocket(uid, bid); registerPush(uid); };
 
             const initSocket = (uid, bid) => {
@@ -285,13 +298,31 @@
 
             const handleLoginBtn = () => { 
                 if("Notification" in window) Notification.requestPermission(); 
-                setErrorMsg(''); 
+                setErrorMsg('');
+                
+                if (showRecover) {
+                    if (!recoverId.trim() || !loginInput.trim()) {
+                        setErrorMsg('请填写旧ID和老板用户名'); return;
+                    }
+                    const input = loginInput.trim().toLowerCase().replace(/@/g, '');
+                    const finalBossId = '@' + input;
+                    localStorage.setItem('hy_uid', recoverId);
+                    localStorage.setItem('hy_boss', finalBossId);
+                    doLogin(recoverId, finalBossId);
+                    return;
+                }
+
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 const validBosses = ['rrii8', 'iibb8']; 
                 if (validBosses.includes(input)) { 
                     const finalBossId = '@' + input; 
                     const tempSocket = io(SOCKET_URL); 
-                    tempSocket.emit('request_id', finalBossId, (newId) => { localStorage.setItem('hy_uid', newId); localStorage.setItem('hy_boss', finalBossId); tempSocket.disconnect(); doLogin(newId, finalBossId); }); 
+                    tempSocket.emit('request_id', finalBossId, (newId) => { 
+                        localStorage.setItem('hy_uid', newId); 
+                        localStorage.setItem('hy_boss', finalBossId); 
+                        tempSocket.disconnect(); 
+                        doLogin(newId, finalBossId); 
+                    }); 
                 } else { 
                     setErrorMsg(''); setTimeout(() => { setErrorMsg('未找到该老板用户名，请核对广告信息带@的TG用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); }, 10); 
                 } 
@@ -299,11 +330,41 @@
             
             const handleTyping = (e) => { setChatInput(e.target.value); socketRef.current.emit('typing', { targetId: 'admin', isTyping: true }); if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = setTimeout(() => { socketRef.current.emit('typing', { targetId: 'admin', isTyping: false }); }, 2000); };
             const handleSend = () => { if (!chatInput.trim()) return; const msgData = { userId, bossId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent' }; setMessages(prev => [...prev, msgData]); socketRef.current.emit('send_message', msgData); socketRef.current.emit('typing', { targetId: 'admin', isTyping: false }); setChatInput(''); };
-            const handleImageUpload = async (e) => { const file = e.target.files[0]; if (!file) return; try { const compressedBase64 = await compressImage(file); const msgData = { userId, bossId, content: compressedBase64, type: 'image', isFromUser: true, createdAt: new Date(), status: 'sent' }; setMessages(prev => [...prev, msgData]); socketRef.current.emit('send_message', msgData); } catch(e) { alert("图片处理失败"); } e.target.value = ''; };
+            
+            const handleImageUpload = async (e) => { 
+                const file = e.target.files[0]; 
+                if (!file) return; 
+                
+                const previewUrl = URL.createObjectURL(file);
+                
+                const tempId = Date.now();
+                const tempMsg = { 
+                    id: tempId, 
+                    userId, 
+                    content: previewUrl, 
+                    type: 'image', 
+                    isFromUser: true, 
+                    status: 'sending', 
+                    createdAt: new Date() 
+                };
+                setMessages(prev => [...prev, tempMsg]);
+                
+                e.target.value = ''; 
+
+                try { 
+                    const compressedBase64 = await compressImage(file); 
+                    
+                    socketRef.current.emit('send_message', { ...tempMsg, content: compressedBase64 });
+                    
+                    setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
+                } catch(e) { 
+                    alert("图片处理失败"); 
+                } 
+            };
 
             const GuideModal = ({ title, children, onClose }) => (
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center pb-8" onClick={onClose}>
-                    <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-5 rounded-2xl max-w-sm mx-4 animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
+                    <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-5 rounded-2xl max-w-sm w-full mx-4 animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-2 mb-3">
                             <span className="text-xl">🔔</span>
                             <p className="text-white font-bold text-lg">{title}</p>
@@ -315,8 +376,6 @@
                 </div>
             );
 
-            // --- 登录页面适配 ---
-            // 使用 style={{height: var(--app-height)}} 确保高度填满，不被地址栏影响
             if (step === 'login') return (
                 <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg" style={{height:'var(--app-height)'}}>
                     <div className="z-10 w-full max-w-[340px] mx-auto">
@@ -331,15 +390,31 @@
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 font-bold text-lg select-none">@</span></div>
                                 <input type="text" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLoginBtn()} className="w-full bg-login-input border border-gray-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 rounded-xl py-4 pl-10 pr-4 text-white outline-none transition-all placeholder-gray-500 text-[16px] shadow-sm font-medium" placeholder="输入广告中老板的TG用户名" />
                             </div>
+                            
+                            {showRecover && (
+                                <div className="relative group animate-fade-in">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 text-lg">🆔</span></div>
+                                    <input type="text" value={recoverId} onChange={(e) => setRecoverId(e.target.value)} className="w-full bg-login-input border border-gray-700 focus:border-blue-600 rounded-xl py-4 pl-10 pr-4 text-white outline-none" placeholder="输入旧ID (如 123456)" />
+                                </div>
+                            )}
+
                             <div className="min-h-[24px]">{errorMsg && (<div className={`text-login-textErr text-[13px] font-bold flex items-center gap-1.5 ${isShake ? 'animate-shake' : ''}`}>{errorMsg}</div>)}</div>
-                            <button onClick={handleLoginBtn} className="w-full glass-btn text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide">连接汇盈国际官方业务员 <span className="text-xl leading-none mb-0.5 ml-1">→</span></button>
-                            <div className="pt-4 flex justify-center">
-                                <button onClick={handleInstallClick} className="text-blue-300/80 text-xs flex items-center gap-1 hover:text-white border border-blue-500/30 bg-blue-500/5 px-4 py-2 rounded-full transition-all">
+                            
+                            <button onClick={handleLoginBtn} className="w-full glass-btn text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide">
+                                {showRecover ? '恢复旧账号' : '连接汇盈国际官方业务员'} <span className="text-xl leading-none mb-0.5 ml-1">→</span>
+                            </button>
+                            
+                            <div className="flex justify-between items-center pt-2">
+                                <button onClick={handleInstallAction} className="text-blue-300/80 text-xs flex items-center gap-1 hover:text-white border border-blue-500/30 bg-blue-500/5 px-3 py-1.5 rounded-full transition-all active:scale-95">
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                    📲 开启离线通知 (推荐)
+                                    {canInstall ? "📲 一键安装APP" : "📲 开启离线通知"}
+                                </button>
+                                <button onClick={() => setShowRecover(!showRecover)} className="text-gray-500 text-xs hover:text-gray-300 underline decoration-dotted">
+                                    {showRecover ? '返回注册' : '找回旧账号?'}
                                 </button>
                             </div>
-                            <div className="text-center pt-4 opacity-60">
+
+                            <div className="text-center pt-2 opacity-60">
                                 <p className="text-indigo-200 text-[12px] font-medium tracking-wide flex items-center justify-center gap-1.5">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     业务员上班时间: 13:00 - 23:00
@@ -352,25 +427,25 @@
                 </div>
             );
 
-            // --- 聊天页面适配 ---
-            // 根 div 使用 fixed 或 height: var(--app-height) 强制铺满
             return (
                 <div className="flex flex-col bg-tg-bg max-w-md mx-auto shadow-2xl relative w-full" style={{height:'var(--app-height)'}}>
-                    <header className="h-14 bg-tg-header flex items-center justify-between px-4 shadow-lg z-20 border-b border-white/5 shrink-0 pt-safe">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">HY</div>
-                            <div><h3 className="font-bold text-sm text-white">汇盈国际官方客服</h3><p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p></div>
-                        </div>
-                        <div className="flex gap-2">
-                             <button onClick={handleInstallClick} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">安装APP</button>
-                             <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
+                    {/* 🔧 iOS FIX: 分离式布局解决 Header 对齐问题。外层 header 负责背景和安全区，内层 div 负责内容高度 */}
+                    <header className="w-full bg-tg-header text-white pt-safe flex-shrink-0 z-50 border-b border-white/5">
+                        <div className="h-14 flex items-center justify-between px-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">HY</div>
+                                <div><h3 className="font-bold text-sm text-white">汇盈国际官方客服</h3><p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p></div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>
+                                <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
+                            </div>
                         </div>
                     </header>
                     
-                    {/* 消息列表：flex-1 自动填充中间所有空间，overflow-y-auto 实现内部滚动 */}
                     <div className="flex-1 ios-scroll p-4 space-y-3 bg-pattern overflow-y-auto">
                         <div className="text-center py-2 animate-fade-in">
-                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallClick}>
+                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={handleInstallAction}>
                                 🔔 点此开启「离线推送」，避免收不到回复 >
                             </p>
                         </div>
@@ -378,7 +453,10 @@
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
                                 <div className={`px-3 py-2.5 rounded-2xl text-sm shadow-sm relative break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
-                                    {(msg.type === 'image' || msg.content.startsWith('data:image')) ? <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> : <p className="whitespace-pre-wrap leading-relaxed max-w-[260px]">{msg.content}</p>}
+                                    {(msg.type === 'image' || msg.content.startsWith('data:image') || msg.content.startsWith('blob:')) ? 
+                                        <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> 
+                                        : <p className="whitespace-pre-wrap leading-relaxed max-w-[260px]">{msg.content}</p>
+                                    }
                                     <div className="flex justify-end items-center gap-1 mt-1"><span className="text-[10px] opacity-50">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>{msg.isFromUser && <IconStatus status={msg.status} />}</div>
                                 </div>
                             </div>
@@ -387,7 +465,6 @@
                         <div ref={scrollRef} />
                     </div>
                     
-                    {/* 底部输入框：shrink-0 防止压缩，pb-safe 适配底部黑条 */}
                     <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-end">
                         <label className="p-2 text-gray-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
                         <textarea rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-transparent text-white text-sm p-2 outline-none" placeholder="输入消息..."></textarea>
@@ -404,7 +481,7 @@
                         </div>
                     )}
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
-                    {showAndroidGuide && <GuideModal title="手动安装指引" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
+                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
         }
