@@ -211,7 +211,6 @@
             const [showIosGuide, setShowIosGuide] = useState(false);
             const [showAndroidGuide, setShowAndroidGuide] = useState(false);
 
-            // 修改：新增一个状态，用于控制是否显示“建议安装APP”的弹窗
             const [showInstallHint, setShowInstallHint] = useState(false);
             
             const socketRef = useRef(null);
@@ -248,10 +247,8 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // 修改：新增 useEffect，当用户进入界面且不是APP模式(isStandalone为false)时，弹出提示
             useEffect(() => {
                 if (!isStandalone) {
-                    // 稍微延迟一下显示，避免和加载画面冲突
                     setTimeout(() => setShowInstallHint(true), 1500);
                 }
             }, [isStandalone]);
@@ -385,7 +382,6 @@
                         if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000);
                     });
                     
-                    // 修复：后台合并后，触发此事件，前端自动刷新历史消息
                     socketRef.current.on('messages_read_update', () => {
                         fetchMessages(uid); 
                     });
@@ -394,7 +390,6 @@
                     socketRef.current.on('force_logout_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
                     socketRef.current.on('admin_user_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
                     
-                    // 修改：将清空/重置事件也绑定到强制登出，并修改提示文案
                     socketRef.current.on('admin_db_cleared', () => forceLogoutNow("⚠️ 聊天记录已清空，请重新登录"));
                     socketRef.current.on('history_cleared', () => forceLogoutNow("⚠️ 聊天记录已清空，请重新登录"));
 
@@ -420,7 +415,14 @@
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
 
-                // 移除老板白名单限制，允许连接任何老板
+                // 修改：增加用户名白名单验证
+                const allowedUsers = ['rrii8', 'iibb8'];
+                if (!allowedUsers.includes(input)) {
+                    setErrorMsg('无效的用户名');
+                    setLoading(false);
+                    return;
+                }
+
                 const tempSocket = io(SOCKET_URL); 
                 tempSocket.emit('request_id', '@'+input, (newId) => { 
                     tempSocket.disconnect(); setLoading(false); 
@@ -483,12 +485,14 @@
             if (step === 'login') return (
                 <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg h-full">
                     <div className="z-10 w-full max-w-[340px] mx-auto">
-                        <h1 className="text-[34px] font-black text-white mb-2">汇盈国际官方客服</h1>
-                        <p className="text-gray-400 text-[15px] mb-8 font-medium">请输入广告中老板的 <span className="text-login-textSub font-bold">Telegram 用户名</span></p>
-                        <div className="mb-6 flex items-start gap-2.5">
-                            <span className="text-yellow-500 text-sm mt-0.5">⚠️</span>
-                            <span className="text-login-textWarn text-[13px] font-bold leading-tight tracking-wide">老板仅用 Telegram，请务必联系业务员，业务员会教你使用Telegram来与老板联系</span>
+                        {/* 修改：将标题区域改为居中图标+文字，匹配图片样式 */}
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 shadow-xl">
+                                <span className="text-white font-bold text-xl">HY</span>
+                            </div>
+                            <h1 className="text-[30px] font-black text-white text-center">汇盈国际客服</h1>
                         </div>
+
                         <div className="space-y-6">
                             {!showRecover && (
                                 <div className="relative group">
@@ -529,7 +533,6 @@
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
                     {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                     
-                    {/* 修改：在 Login 界面也添加这个弹窗 */}
                     {showInstallHint && (
                         <GuideModal title="⚠️ 消息防丢提醒" onClose={() => setShowInstallHint(false)}>
                             <p className="text-white text-sm">建议安装APP来接收业务员的回复，避免通知收不到。</p>
@@ -570,7 +573,8 @@
                         {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-4">正在建立加密连接...</div>}
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                                <div className={`px-3 py-2.5 rounded-2xl text-sm max-w-[260px] break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
+                                {/* 修改：增加 whitespace-pre-wrap 样式，允许后端发送的换行符生效 */}
+                                <div className={`px-3 py-2.5 rounded-2xl text-sm max-w-[260px] break-words whitespace-pre-wrap ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
                                     {(msg.type === 'image' || msg.content.startsWith('data:') || msg.content.startsWith('blob:')) ? 
                                         <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> 
                                         : msg.content
@@ -604,7 +608,6 @@
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
                     {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                     
-                    {/* 修改：在 Chat 界面也添加这个弹窗 */}
                     {showInstallHint && (
                         <GuideModal title="⚠️ 消息防丢提醒" onClose={() => setShowInstallHint(false)}>
                             <p className="text-white text-sm">建议安装APP来接收业务员的回复，避免通知收不到。</p>
