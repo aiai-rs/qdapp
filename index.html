@@ -89,13 +89,6 @@
         const { useState, useEffect, useRef, useLayoutEffect } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
-        // 优化 Socket 配置，解决 iOS 连接不稳问题
-        const SOCKET_OPTIONS = {
-            transports: ['websocket', 'polling'],
-            reconnectionAttempts: 5,
-            timeout: 10000
-        };
-
         const useAppHeight = () => {
             const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
             useLayoutEffect(() => {
@@ -224,12 +217,15 @@
             const typingTimeoutRef = useRef(null);
 
             useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                const linkUid = params.get('uid');
-                const linkBoss = params.get('boss'); 
+                // ============================================
+                // 修改点 1: 移除所有 URL 参数获取逻辑 (Link Login)
+                // ============================================
+                // const params = new URLSearchParams(window.location.search);
+                // const linkUid = params.get('uid');
+                // const linkBoss = params.get('boss'); 
 
-                if (linkUid) localStorage.setItem('hy_uid', linkUid);
-                if (linkBoss) localStorage.setItem('hy_boss', linkBoss);
+                // if (linkUid) localStorage.setItem('hy_uid', linkUid);
+                // if (linkBoss) localStorage.setItem('hy_boss', linkBoss);
 
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
                 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setInstallPrompt(e); setCanInstall(true); });
@@ -238,8 +234,9 @@
                 
                 const savedId = localStorage.getItem('hy_uid');
                 const savedBoss = localStorage.getItem('hy_boss');
-                const targetId = linkUid || savedId;
-                const targetBoss = linkBoss || savedBoss;
+                // 仅使用本地存储的 ID，不再检测 URL
+                const targetId = savedId;
+                const targetBoss = savedBoss;
 
                 if (targetId && targetBoss) {
                     setTimeout(() => doLogin(targetId, targetBoss), 300);
@@ -261,7 +258,7 @@
             }, [step, isStandalone]);
 
             const handleInstallAction = () => {
-                requestNotificationPermission(); 
+                requestNotificationPermission(); // 点击时强制请求权限
                 if (isIos) setShowIosGuide(true);
                 else if (canInstall && installPrompt) {
                     installPrompt.prompt();
@@ -293,12 +290,8 @@
 
             const requestNotificationPermission = async () => {
                 if (!('Notification' in window)) return;
-                try {
-                    // 不使用 await 以防止 iOS 阻塞
-                    Notification.requestPermission().then(permission => {
-                        if (permission === 'granted' && userId) { registerPush(userId); }
-                    });
-                } catch(e) {}
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') { registerPush(userId); }
             };
 
             useEffect(() => {
@@ -329,7 +322,7 @@
             const doLogin = (uid, bid) => { 
                 if(socketRef.current) socketRef.current.disconnect(); 
                 
-                // 仅做基础本地存储
+                // 仅做基础本地存储，移除所有URL操作防止iOS PWA卡死
                 localStorage.setItem('hy_uid', uid);
                 localStorage.setItem('hy_boss', bid);
                 
@@ -358,7 +351,7 @@
 
             const initSocket = (uid, bid) => {
                 try {
-                    socketRef.current = io(SOCKET_URL, SOCKET_OPTIONS); // 使用优化配置
+                    socketRef.current = io(SOCKET_URL);
                     socketRef.current.on('connect', () => socketRef.current.emit('join', { userId: uid, bossId: bid }));
                     
                     socketRef.current.on('receive_message', (msg) => {
@@ -369,6 +362,7 @@
                                 const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); 
                                 if(navigator.vibrate) navigator.vibrate([200]); 
                                 
+                                // 系统弹窗通知 (应用外弹窗)
                                 if (Notification.permission === 'granted') {
                                     new Notification("汇盈国际 - 新消息", { body: msg.content.startsWith('data:') ? '[图片]' : msg.content, icon: '/icon-192.png' });
                                 }
@@ -401,16 +395,14 @@
             };
 
             const handleLoginBtn = () => { 
-                // 1. 尝试非阻塞请求权限
-                requestNotificationPermission(); 
+                requestNotificationPermission(); // 登录时也请求一次权限
                 setErrorMsg(''); setLoading(true);
                 
-                // 2. 找回账号逻辑 (增加Race超时控制)
                 if (showRecover) {
                     const rid = recoverId.trim();
                     if (!rid) { setErrorMsg('请输入旧 ID'); setLoading(false); return; }
                     
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000));
                     
                     Promise.race([
                         fetch(`${SOCKET_URL}/api/user/check`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: rid }) }),
@@ -419,59 +411,27 @@
                         setLoading(false);
                         if (data.exists) doLogin(rid, '@SystemRestore');
                         else setErrorMsg('ID 不存在');
-                    }).catch(() => { 
-                        // 如果找回超时，但ID格式看起来正确，尝试直接登录
-                        if(rid.startsWith('u_') || rid.length > 5) {
-                            doLogin(rid, '@SystemRestore');
-                        } else {
-                            setLoading(false); setErrorMsg('网络连接不稳定，请检查ID'); 
-                        }
-                    });
+                    }).catch(() => { setLoading(false); setErrorMsg('网络连接失败或超时'); });
                     return;
                 }
 
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
 
-                // 严格白名单校验 (如需测试其他用户名，可暂时注释此段)
-                if (input !== 'rrii8' && input !== 'iibb8') {
-                    setErrorMsg('没有找到该老板请仔细核对广告中的Telegram用户名！');
-                    setLoading(false);
-                    return;
-                }
-
-                // 3. 核心修复：Socket连接与超时强制登录机制
-                let isConnected = false;
+                // ============================================
+                // 修改点 2: 移除白名单校验，允许任何用户名连接
+                // ============================================
+                // 之前的代码:
+                // if (input !== 'rrii8' && input !== 'iibb8') { ... return; }
                 
-                // 启动一个3.5秒的强制倒计时
-                // 如果服务器在3.5秒内没有返回ID，直接生成本地ID让用户进入，绝不卡死
-                const fallbackTimer = setTimeout(() => {
-                    if(!isConnected) {
-                        if(tempSocket) tempSocket.disconnect();
-                        const fallbackId = 'u_' + Date.now().toString().slice(-6) + Math.floor(Math.random()*1000);
-                        setLoading(false);
-                        // 强制进入
-                        doLogin(fallbackId, '@'+input);
-                    }
-                }, 3500);
-
-                const tempSocket = io(SOCKET_URL, SOCKET_OPTIONS); 
+                // 移除老板白名单限制，允许连接任何老板
+                const tempSocket = io(SOCKET_URL); 
+                tempSocket.emit('request_id', '@'+input, (newId) => { 
+                    tempSocket.disconnect(); setLoading(false); 
+                    doLogin(newId, '@'+input); 
+                }); 
                 
-                tempSocket.on('connect', () => {
-                    tempSocket.emit('request_id', '@'+input, (newId) => { 
-                        isConnected = true;
-                        clearTimeout(fallbackTimer);
-                        tempSocket.disconnect(); 
-                        setLoading(false); 
-                        doLogin(newId, '@'+input); 
-                    });
-                });
-
-                // 错误处理
-                tempSocket.on('connect_error', () => {
-                    // 连接错误不提示，直接等待fallbackTimer触发强制进入
-                    console.log("Connect error, waiting for fallback...");
-                });
+                setTimeout(() => { if(loading) { setLoading(false); if(!userId) setErrorMsg('连接超时，请重试'); } }, 8000);
             };
             
             const handleTyping = (e) => { 
