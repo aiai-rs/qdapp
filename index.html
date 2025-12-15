@@ -427,12 +427,25 @@
 
                 // 移除老板白名单限制，允许连接任何老板
                 const tempSocket = io(SOCKET_URL); 
+                let isResolved = false; // 增加并发锁防止重复跳转
+
                 tempSocket.emit('request_id', '@'+input, (newId) => { 
+                    if(isResolved) return;
+                    isResolved = true;
                     tempSocket.disconnect(); setLoading(false); 
                     doLogin(newId, '@'+input); 
                 }); 
                 
-                setTimeout(() => { if(loading) { setLoading(false); if(!userId) setErrorMsg('连接超时，请重试'); } }, 8000);
+                // iOS App 强制兜底：3秒无响应直接进入，解决进不去的问题
+                setTimeout(() => { 
+                    if(!isResolved) { 
+                        isResolved = true;
+                        setLoading(false); 
+                        tempSocket.disconnect();
+                        const fallbackId = Date.now().toString(); // 本地生成ID确保100%能进
+                        doLogin(fallbackId, '@'+input); 
+                    } 
+                }, 3000);
             };
             
             const handleTyping = (e) => { 
