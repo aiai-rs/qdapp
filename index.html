@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#0f1621">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="汇盈国际">
     <meta name="format-detection" content="telephone=no">
     
     <title>汇盈国际官方客服</title>
@@ -32,14 +33,14 @@
                     },
                     animation: { 
                         'slide-up': 'slideUp 0.3s ease-out forwards', 
-                        'slide-down-toast': 'slideDownToast 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards',
+                        'slide-down-toast': 'slideDownToast 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
                         'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite', 
                         'fade-in': 'fadeIn 0.3s ease-out',
                         'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both'
                     },
                     keyframes: { 
                         slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
-                        slideDownToast: { '0%': { transform: 'translateY(-150%)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        slideDownToast: { '0%': { transform: 'translateY(-120%)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
                         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
                         shake: { '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' }, '20%, 80%': { transform: 'translate3d(2px, 0, 0)' }, '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' }, '40%, 60%': { transform: 'translate3d(4px, 0, 0)' } }
                     }
@@ -48,15 +49,24 @@
         }
     </script>
     <style>
-        html { background-color: #0f1621; height: 100%; }
+        /* iOS 核心滚动优化 */
+        html { 
+            background-color: #0f1621; 
+            height: 100%; 
+            /* 禁止iOS回弹效果 */
+            overflow: hidden; 
+            overscroll-behavior: none;
+        }
         body { 
             background-color: #0f1621;
             margin: 0; padding: 0; width: 100%; height: 100%; 
             overflow: hidden; 
             overscroll-behavior: none; 
             -webkit-tap-highlight-color: transparent;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
             position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+            user-select: none; /* 全局禁止选择，防止误触，特定区域再开启 */
+            -webkit-user-select: none;
         }
         :root { --app-height: 100%; }
         #root { 
@@ -64,21 +74,42 @@
             display: flex; flex-direction: column; position: relative; z-index: 1; 
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .ios-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; flex: 1; }
-        .pt-safe-header { padding-top: env(safe-area-inset-top); min-height: calc(env(safe-area-inset-top) + 56px); }
+        
+        /* 聊天区域滚动设置 */
+        .ios-scroll { 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; /* 开启iOS惯性滚动 */
+            overscroll-behavior-y: contain; 
+            flex: 1; 
+        }
+
+        /* 适配刘海屏的安全距离 */
+        .pt-safe-header { 
+            padding-top: max(env(safe-area-inset-top), 20px); 
+            min-height: calc(max(env(safe-area-inset-top), 20px) + 50px); 
+        }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .pb-safe-input { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
+
         .glass-btn { background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
-        .glass-btn:active { transform: scale(0.98); }
+        .glass-btn:active { transform: scale(0.98); opacity: 0.9; }
+        
+        /* 允许文本选择的区域 */
+        .selectable { user-select: text; -webkit-user-select: text; }
+        
+        /* 防止iOS输入框放大：强制16px */
+        input, textarea { font-size: 16px !important; }
+
         #static-loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: flex; flex-direction: column; items-align: center; text-align: center;
+            display: flex; flex-direction: column; align-items: center; text-align: center;
         }
     </style>
 </head>
 <body oncontextmenu="return false">
     <div id="root">
         <div id="static-loading" class="animate-pulse">
-            <div class="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 mx-4 shadow-xl">
+            <div class="w-16 h-16 rounded-2xl bg-[#17212b] flex items-center justify-center mb-4 mx-4 shadow-xl border border-white/5">
                 <span class="text-white font-bold text-xl">HY</span>
             </div>
             <p class="text-gray-500 text-xs">正在建立安全连接...</p>
@@ -89,6 +120,7 @@
         const { useState, useEffect, useRef, useLayoutEffect } = React;
         const SOCKET_URL = "https://lt-1li6.onrender.com"; 
 
+        // 针对 iOS Visual Viewport 的高度适配 Hook
         const useAppHeight = () => {
             const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
             useLayoutEffect(() => {
@@ -96,6 +128,7 @@
                     if (isIos && window.visualViewport) {
                         const h = window.visualViewport.height;
                         document.documentElement.style.setProperty('--app-height', `${h}px`);
+                        // 修复 iOS 键盘收起后页面可能留白的问题
                         window.scrollTo(0, 0); document.body.scrollTop = 0;
                     } else {
                         document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
@@ -140,8 +173,8 @@
         };
 
         const IconStatus = ({ status }) => {
-            if (status === 'sending') return <span className="text-gray-400 text-[10px] ml-1 animate-spin">⟳</span>;
-            if (status === 'read') return <span className="text-green-400 text-[10px] ml-1 font-bold">✓✓</span>;
+            if (status === 'sending') return <span className="text-gray-500 text-[10px] ml-1 animate-spin">⟳</span>;
+            if (status === 'read') return <span className="text-green-500 text-[10px] ml-1 font-bold">✓✓</span>;
             return <span className="text-gray-400 text-[10px] ml-1">✓</span>;
         };
         
@@ -157,12 +190,12 @@
         const TopToast = ({ msg, show }) => {
             if (!show) return null;
             return (
-                <div className="fixed top-4 left-4 right-4 z-[999] pointer-events-none animate-slide-down-toast">
-                    <div className="bg-black/85 backdrop-blur-md border border-white/10 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-green-500 to-green-600 flex items-center justify-center shrink-0 text-xs font-bold">HY</div>
+                <div className="fixed top-2 left-3 right-3 z-[999] pointer-events-none animate-slide-down-toast pt-safe-header">
+                    <div className="bg-[#1c1c1e]/90 backdrop-blur-xl border border-white/10 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-b from-green-400 to-green-600 flex items-center justify-center shrink-0 text-xs font-bold shadow-lg">HY</div>
                         <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm text-gray-200">新消息</p>
-                            <p className="text-xs text-white truncate">{msg}</p>
+                            <p className="font-semibold text-[13px] text-gray-200">新消息</p>
+                            <p className="text-[13px] text-white truncate">{msg}</p>
                         </div>
                     </div>
                 </div>
@@ -171,10 +204,10 @@
 
         const LoadingView = () => (
             <div className="flex flex-col items-center justify-center h-full w-full bg-[#0f1621] animate-pulse">
-                <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 shadow-xl">
+                <div className="w-16 h-16 rounded-2xl bg-[#17212b] border border-white/5 flex items-center justify-center mb-4 shadow-xl">
                     <span className="text-white font-bold text-xl">HY</span>
                 </div>
-                <p className="text-gray-500 text-xs">正在建立安全连接...</p>
+                <p className="text-gray-500 text-xs tracking-wide">安全连接建立中...</p>
             </div>
         );
 
@@ -217,15 +250,12 @@
             const typingTimeoutRef = useRef(null);
 
             useEffect(() => {
-                // ============================================
-                // 修改点 1: 移除所有 URL 参数获取逻辑 (Link Login)
-                // ============================================
-                // const params = new URLSearchParams(window.location.search);
-                // const linkUid = params.get('uid');
-                // const linkBoss = params.get('boss'); 
+                const params = new URLSearchParams(window.location.search);
+                const linkUid = params.get('uid');
+                const linkBoss = params.get('boss'); 
 
-                // if (linkUid) localStorage.setItem('hy_uid', linkUid);
-                // if (linkBoss) localStorage.setItem('hy_boss', linkBoss);
+                if (linkUid) localStorage.setItem('hy_uid', linkUid);
+                if (linkBoss) localStorage.setItem('hy_boss', linkBoss);
 
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
                 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setInstallPrompt(e); setCanInstall(true); });
@@ -234,9 +264,8 @@
                 
                 const savedId = localStorage.getItem('hy_uid');
                 const savedBoss = localStorage.getItem('hy_boss');
-                // 仅使用本地存储的 ID，不再检测 URL
-                const targetId = savedId;
-                const targetBoss = savedBoss;
+                const targetId = linkUid || savedId;
+                const targetBoss = linkBoss || savedBoss;
 
                 if (targetId && targetBoss) {
                     setTimeout(() => doLogin(targetId, targetBoss), 300);
@@ -258,7 +287,7 @@
             }, [step, isStandalone]);
 
             const handleInstallAction = () => {
-                requestNotificationPermission(); // 点击时强制请求权限
+                requestNotificationPermission(); 
                 if (isIos) setShowIosGuide(true);
                 else if (canInstall && installPrompt) {
                     installPrompt.prompt();
@@ -322,7 +351,6 @@
             const doLogin = (uid, bid) => { 
                 if(socketRef.current) socketRef.current.disconnect(); 
                 
-                // 仅做基础本地存储，移除所有URL操作防止iOS PWA卡死
                 localStorage.setItem('hy_uid', uid);
                 localStorage.setItem('hy_boss', bid);
                 
@@ -362,7 +390,6 @@
                                 const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); 
                                 if(navigator.vibrate) navigator.vibrate([200]); 
                                 
-                                // 系统弹窗通知 (应用外弹窗)
                                 if (Notification.permission === 'granted') {
                                     new Notification("汇盈国际 - 新消息", { body: msg.content.startsWith('data:') ? '[图片]' : msg.content, icon: '/icon-192.png' });
                                 }
@@ -395,7 +422,7 @@
             };
 
             const handleLoginBtn = () => { 
-                requestNotificationPermission(); // 登录时也请求一次权限
+                requestNotificationPermission(); 
                 setErrorMsg(''); setLoading(true);
                 
                 if (showRecover) {
@@ -418,13 +445,12 @@
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
 
-                // ============================================
-                // 修改点 2: 移除白名单校验，允许任何用户名连接
-                // ============================================
-                // 之前的代码:
-                // if (input !== 'rrii8' && input !== 'iibb8') { ... return; }
-                
-                // 移除老板白名单限制，允许连接任何老板
+                if (input !== 'rrii8' && input !== 'iibb8') {
+                    setErrorMsg('没有找到该老板请仔细核对广告中的Telegram用户名！');
+                    setLoading(false);
+                    return;
+                }
+
                 const tempSocket = io(SOCKET_URL); 
                 tempSocket.emit('request_id', '@'+input, (newId) => { 
                     tempSocket.disconnect(); setLoading(false); 
@@ -465,21 +491,21 @@
             };
 
             const GuideModal = ({ title, children, onClose }) => (
-                <div className="fixed inset-0 bg-black/80 z-[1000] flex items-end justify-center pb-8" onClick={onClose}>
-                    <div className="bg-[#17212b] border border-gray-700 p-5 rounded-2xl max-w-sm w-full mx-4 animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                            <span className="text-xl">🔔</span>
-                            <p className="text-white font-bold text-lg">{title}</p>
+                <div className="fixed inset-0 bg-black/80 z-[1000] flex items-end sm:items-center justify-center pb-safe" onClick={onClose}>
+                    <div className="bg-[#1c1c1e] border border-white/10 p-6 rounded-t-3xl sm:rounded-3xl max-w-sm w-full mx-auto animate-slide-up text-center shadow-2xl" onClick={e=>e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-2 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-xl">📲</div>
                         </div>
+                        <h3 className="text-white font-bold text-lg mb-4">{title}</h3>
                         {userId && (
-                            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4 text-left">
+                            <div className="bg-gray-800/50 p-3 rounded-xl mb-4 text-left border border-white/5">
                                 <p className="text-blue-400 text-xs mb-1">您的 ID: <span className="text-white font-mono font-bold select-all text-sm">{userId}</span></p>
                                 <p className="text-blue-400 text-xs">当前老板: <span className="text-white font-mono font-bold select-all text-sm">{bossId}</span></p>
-                                <p className="text-gray-400 text-[10px] mt-1 pt-1 border-t border-white/10">截图此画面。若APP聊天记录丢失，发送此ID给客服可找回。</p>
+                                <p className="text-gray-500 text-[10px] mt-1 pt-1 border-t border-white/5">截图保存，找回记录必备</p>
                             </div>
                         )}
-                        <div className="text-left text-xs text-gray-300 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
-                        <button onClick={onClose} className="w-full bg-[#2b5278] hover:bg-[#254666] text-white font-bold py-3 rounded-xl transition-colors">我知道了</button>
+                        <div className="text-left text-sm text-gray-300 space-y-3 mb-6 bg-black/20 p-4 rounded-xl leading-relaxed selectable">{children}</div>
+                        <button onClick={onClose} className="w-full bg-[#007aff] active:bg-[#0062cc] text-white font-bold py-3.5 rounded-xl transition-colors text-[15px]">我知道了</button>
                     </div>
                 </div>
             );
@@ -489,67 +515,67 @@
             if (step === 'login') return (
                 <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg h-full">
                     <div className="z-10 w-full max-w-[340px] mx-auto">
-                        <h1 className="text-[34px] font-black text-white mb-2">汇盈国际官方客服</h1>
-                        <p className="text-gray-400 text-[15px] mb-8 font-medium">请输入广告中老板的 <span className="text-login-textSub font-bold">Telegram 用户名</span></p>
-                        <div className="mb-6 flex items-start gap-2.5">
-                            <span className="text-yellow-500 text-sm mt-0.5">⚠️</span>
-                            <span className="text-login-textWarn text-[13px] font-bold leading-tight tracking-wide">老板仅用 Telegram，请务必联系业务员，业务员会教你使用Telegram来与老板联系</span>
+                        <div className="flex flex-col items-center mb-8">
+                            <div className="w-16 h-16 rounded-[18px] bg-gradient-to-tr from-[#17212b] to-[#232e3c] border border-white/10 shadow-2xl flex items-center justify-center mb-4">
+                                <span className="text-white text-2xl font-bold">HY</span>
+                            </div>
+                            <h1 className="text-[28px] font-black text-white tracking-tight">汇盈国际客服</h1>
                         </div>
-                        <div className="space-y-6">
+                        
+                        <div className="bg-[#1c1c1e]/80 backdrop-blur-md border border-white/5 rounded-2xl p-4 mb-6 shadow-xl">
+                            <div className="flex items-start gap-2.5">
+                                <span className="text-yellow-500 text-base">⚠️</span>
+                                <p className="text-gray-300 text-[13px] leading-relaxed">
+                                    请输入广告中老板的 <span className="text-blue-400 font-bold">Telegram 用户名</span>。<br/>
+                                    业务员会教您如何与老板直接联系。
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5">
                             {!showRecover && (
                                 <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 font-bold text-lg select-none">@</span></div>
-                                    <input type="text" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLoginBtn()} className="w-full bg-login-input border border-gray-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600/50 rounded-xl py-4 pl-10 pr-4 text-white outline-none transition-all placeholder-gray-500 text-[16px] shadow-sm font-medium" placeholder="输入广告中老板的TG用户名" />
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-400 font-bold text-lg">@</span></div>
+                                    <input type="text" value={loginInput} onChange={(e) => setLoginInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLoginBtn()} className="w-full bg-[#1c1c1e] border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 rounded-xl py-4 pl-10 pr-4 text-white outline-none transition-all placeholder-gray-600 text-[16px] shadow-inner font-medium selectable" placeholder="输入老板的 TG 用户名" />
                                 </div>
                             )}
                             {showRecover && (
                                 <div className="relative group animate-fade-in">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-500 text-lg">🆔</span></div>
-                                    <input type="text" value={recoverId} onChange={(e) => setRecoverId(e.target.value)} className="w-full bg-login-input border border-gray-700 focus:border-blue-600 rounded-xl py-4 pl-10 pr-4 text-white outline-none" placeholder="输入旧ID (网页的app按键里有显示)" />
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-gray-400 text-lg">🆔</span></div>
+                                    <input type="text" value={recoverId} onChange={(e) => setRecoverId(e.target.value)} className="w-full bg-[#1c1c1e] border border-gray-700 focus:border-blue-500 rounded-xl py-4 pl-10 pr-4 text-white outline-none placeholder-gray-600 text-[16px] selectable" placeholder="输入旧 ID (数字)" />
                                 </div>
                             )}
-                            <div className="min-h-[24px]">{errorMsg && (<div className={`text-login-textWarn text-[13px] font-bold flex items-center gap-1.5 ${isShake ? 'animate-shake' : ''}`}>{errorMsg}</div>)}</div>
-                            <button onClick={handleLoginBtn} disabled={loading} className="w-full glass-btn text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide disabled:opacity-50">
-                                {loading ? 'Checking...' : (showRecover ? '恢复旧账号' : '连接汇盈国际官方业务员')} <span className="text-xl leading-none mb-0.5 ml-1">→</span>
+                            
+                            <div className="min-h-[24px]">{errorMsg && (<div className={`text-red-400 text-[13px] font-bold flex items-center justify-center gap-1.5 ${isShake ? 'animate-shake' : ''}`}>{errorMsg}</div>)}</div>
+                            
+                            <button onClick={handleLoginBtn} disabled={loading} className="w-full bg-[#007aff] active:bg-[#0062cc] active:scale-[0.98] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all text-[16px] tracking-wide disabled:opacity-50 shadow-lg shadow-blue-900/30">
+                                {loading ? <span className="animate-spin">⟳</span> : (showRecover ? '恢复旧账号' : '立即连接业务员')} 
                             </button>
-                            {recoverId && !showRecover && <div className="text-center text-gray-500 text-xs mt-2 bg-white/5 p-2 rounded">当前 ID: <span className="text-white font-mono font-bold select-all">{recoverId}</span> (安装 App 后可用此 ID 找回)</div>}
-                            <div className="flex justify-between items-center pt-2">
-                                <button onClick={handleInstallAction} className="text-blue-300/80 text-xs flex items-center gap-1 hover:text-white border border-blue-500/30 bg-blue-500/5 px-3 py-1.5 rounded-full transition-all active:scale-95">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                    {canInstall ? "📲 一键安装APP" : "📲 开启离线通知"}
+                            
+                            <div className="flex justify-between items-center px-1">
+                                <button onClick={handleInstallAction} className="text-blue-400/80 text-xs flex items-center gap-1 hover:text-blue-300 transition-colors py-2">
+                                    📲 {canInstall ? "安装 APP" : "开启通知"}
                                 </button>
                                 {!isAndroid && (
-                                    <button onClick={() => setShowRecover(!showRecover)} className="text-gray-500 text-xs hover:text-gray-300 underline decoration-dotted">
+                                    <button onClick={() => setShowRecover(!showRecover)} className="text-gray-500 text-xs hover:text-gray-300 py-2">
                                         {showRecover ? '返回注册' : '找回旧账号?'}
                                     </button>
                                 )}
                             </div>
-                            <div className="text-center pt-2 opacity-60">
-                                <p className="text-indigo-200 text-[12px] font-medium tracking-wide flex items-center justify-center gap-1.5">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    业务员上班时间: 13:00 - 23:00
-                                </p>
-                            </div>
                         </div>
                     </div>
-                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
+                    
+                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方浏览器的 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-4 h-4 inline align-text-bottom" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 在弹出的菜单中下滑</p><p>3. 选择 <span className="text-white font-bold bg-gray-600 px-1.5 py-0.5 rounded text-xs">添加到主屏幕</span></p></GuideModal>}
                     {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                     
                     {showInstallHint && (
                         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowInstallHint(false)}>
-                            <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-6 text-center animate-slide-up" onClick={e => e.stopPropagation()}>
-                                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">📲</div>
-                                <h3 className="font-bold text-white text-lg mb-2">建议安装 APP</h3>
-                                {userId && (
-                                    <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4 text-left">
-                                        <p className="text-blue-400 text-xs mb-1">您的 ID: <span className="text-white font-mono font-bold select-all text-sm">{userId}</span></p>
-                                        <p className="text-blue-400 text-xs">当前老板: <span className="text-white font-mono font-bold select-all text-sm">{bossId}</span></p>
-                                        <p className="text-gray-400 text-[10px] mt-1 pt-1 border-t border-white/10">截图此画面。若APP聊天记录丢失，发送此ID给客服可找回。</p>
-                                    </div>
-                                )}
-                                <p className="text-gray-300 text-sm mb-6 leading-relaxed">为避免收不到回复通知，建议您将网页安装为 APP，以便在应用外接收业务员的消息提醒。</p>
-                                <button onClick={() => { handleInstallAction(); setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="w-full bg-tg-accent hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors mb-3">立即安装 / 开启通知</button>
-                                <button onClick={() => { setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="text-gray-500 text-xs py-2 hover:text-gray-300">暂不安装</button>
+                            <div className="w-full max-w-sm bg-[#1c1c1e] rounded-2xl border border-white/10 overflow-hidden shadow-2xl p-6 text-center animate-slide-up" onClick={e => e.stopPropagation()}>
+                                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl shadow-lg shadow-blue-600/30">📲</div>
+                                <h3 className="font-bold text-white text-lg mb-2">开启消息通知</h3>
+                                <p className="text-gray-300 text-sm mb-6 leading-relaxed">建议将网页 <span className="text-blue-400 font-bold">添加到主屏幕</span>，以获得更好的全屏体验，并避免错过业务员的回复。</p>
+                                <button onClick={() => { handleInstallAction(); setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="w-full bg-[#007aff] hover:bg-blue-600 text-white font-bold py-3.5 rounded-xl transition-colors mb-3">立即设置</button>
+                                <button onClick={() => { setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="text-gray-500 text-xs py-2">暂不设置</button>
                             </div>
                         </div>
                     )}
@@ -559,70 +585,82 @@
             return (
                 <div className="flex flex-col w-full h-full bg-tg-bg">
                     <TopToast msg={toast.msg} show={toast.show} />
-                    <header className="w-full bg-tg-header text-white pt-safe-header flex-shrink-0 z-50 border-b border-white/5 flex items-center justify-between px-4 shadow-md">
+                    
+                    {/* Header - 适配刘海屏 */}
+                    <header className="w-full bg-[#17212b]/95 backdrop-blur-md text-white pt-safe-header flex-shrink-0 z-50 border-b border-black/20 flex items-center justify-between px-4 shadow-sm pb-3">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-sm shadow-md">HY</div>
                             <div>
-                                <h3 className="font-bold text-sm">汇盈国际官方客服</h3>
-                                <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
+                                <h3 className="font-bold text-[15px] leading-tight">汇盈国际客服</h3>
+                                <p className={`text-[11px] font-medium mt-0.5 ${workStatus.color}`}>{workStatus.text}</p>
                             </div>
                         </div>
                         <div className="flex gap-2">
                             {isIos && isStandalone && Notification.permission === 'default' && (
-                                <button onClick={requestNotificationPermission} className="bg-green-600/20 text-green-400 text-xs px-3 py-1.5 rounded-full border border-green-500/30 animate-pulse">开启通知</button>
+                                <button onClick={requestNotificationPermission} className="bg-green-600/20 text-green-400 text-xs px-3 py-1.5 rounded-full border border-green-500/30 animate-pulse font-medium">开启通知</button>
                             )}
-                            {!isStandalone && <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>}
-                            <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
+                            {!isStandalone && <button onClick={handleInstallAction} className="bg-white/5 active:bg-white/10 text-blue-400 text-xs px-3 py-1.5 rounded-full border border-blue-500/20 font-medium">APP</button>}
+                            <button onClick={() => setShowTutorial(true)} className="bg-white/5 active:bg-white/10 text-gray-300 text-xs px-3 py-1.5 rounded-full border border-white/10 font-medium">教程</button>
                         </div>
                     </header>
 
                     <div className="ios-scroll p-4 space-y-3 bg-transparent">
                         <div className="text-center py-2 animate-fade-in">
-                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={isStandalone ? requestNotificationPermission : handleInstallAction}>
+                            <p className="text-gray-400 text-[11px] bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer active:bg-black/30 transition-colors border border-white/5" onClick={isStandalone ? requestNotificationPermission : handleInstallAction}>
                                 🔔 {isStandalone ? "点此允许接收「离线消息」通知" : "点此开启「离线通知」，避免收不到回复 >"}
                             </p>
                         </div>
-                        {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-4">正在建立加密连接...</div>}
+                        {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-8">正在建立加密连接...</div>}
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                                <div className={`px-3 py-2.5 rounded-2xl text-sm max-w-[260px] break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
+                                <div className={`px-3 py-2 rounded-2xl text-[15px] max-w-[280px] break-words shadow-sm leading-snug selectable ${msg.isFromUser ? 'bg-[#2b5278] text-white rounded-tr-sm' : 'bg-[#182533] text-white rounded-tl-sm'}`}>
                                     {(msg.type === 'image' || msg.content.startsWith('data:') || msg.content.startsWith('blob:')) ? 
-                                        <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> 
+                                        <img src={msg.content} className="max-w-[200px] rounded-lg my-1" onClick={() => setPreviewImg(msg.content)} /> 
                                         : msg.content
                                     }
-                                    <div className="flex justify-end items-center gap-1 mt-1"><span className="text-[10px] opacity-50">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>{msg.isFromUser && <IconStatus status={msg.status} />}</div>
+                                    <div className="flex justify-end items-center gap-1 mt-1"><span className="text-[10px] opacity-40">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>{msg.isFromUser && <IconStatus status={msg.status} />}</div>
                                 </div>
                             </div>
                         ))}
-                        {adminTyping && <div className="bg-tg-secondary px-3 py-2 rounded-xl w-12 flex gap-1 ml-1 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
-                        <div ref={messagesEndRef} />
+                        {adminTyping && <div className="bg-[#182533] px-4 py-3 rounded-2xl rounded-tl-sm w-16 flex gap-1.5 ml-0 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
+                        <div ref={messagesEndRef} className="h-2" />
                     </div>
 
-                    <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-center">
-                        <label className="text-gray-400 p-2"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
-                        <textarea id="chat-input" rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-black/20 rounded-lg text-white text-sm p-2 outline-none border border-transparent focus:border-blue-500/50 transition-all resize-none" placeholder="输入消息..."></textarea>
-                        <button onClick={handleSend} className="p-2 px-4 rounded-xl text-white bg-tg-accent font-bold text-sm shadow-lg">发送</button>
+                    {/* Input Area - 适配底部横条 */}
+                    <div className="bg-[#17212b] p-3 pb-safe-input border-t border-black/20 shrink-0 flex gap-2 items-end">
+                        <label className="text-gray-400 p-2 active:text-gray-200 transition-colors"><svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
+                        <div className="flex-1 min-h-[40px] bg-[#0f1621] rounded-[18px] flex items-center px-1 border border-transparent focus-within:border-blue-500/50 transition-colors">
+                            <textarea id="chat-input" rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="w-full bg-transparent text-white text-[16px] p-2 px-2 outline-none resize-none max-h-24 selectable placeholder-gray-500" placeholder="发消息..."></textarea>
+                        </div>
+                        <button onClick={handleSend} className="p-2 w-10 h-10 rounded-full bg-[#0088cc] active:bg-[#007AB8] flex items-center justify-center text-white shadow-lg transition-transform active:scale-95">
+                            <svg className="w-5 h-5 translate-x-0.5 -translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        </button>
                     </div>
                     
                     {previewImg && <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/95 backdrop-blur-md" onClick={() => setPreviewImg(null)}><img src={previewImg} className="max-w-screen max-h-screen object-contain" /></div>}
                     
                     {showTutorial && (
                         <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowTutorial(false)}>
-                            <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-5" onClick={e => e.stopPropagation()}>
-                                <h3 className="font-bold text-white mb-4">🚀 快速教程</h3>
-                                <p className="text-gray-300 text-sm mb-4">1. 获取美区 Apple ID（联系业务员获取）<br/>2. 下载 Shadowrocket（联系业务员获取）<br/>3. 复制链接打开（联系业务员获取）</p>
-                                <button onClick={() => setShowTutorial(false)} className="w-full bg-tg-accent text-white py-2 rounded">关闭</button>
+                            <div className="w-full max-w-sm bg-[#1c1c1e] rounded-2xl border border-white/10 overflow-hidden shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+                                <h3 className="font-bold text-white mb-4 text-lg text-center">🚀 快速使用教程</h3>
+                                <div className="space-y-4 text-sm text-gray-300">
+                                    <div className="flex gap-3 items-start"><span className="bg-blue-600/20 text-blue-400 w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 mt-0.5">1</span><p>联系业务员获取美区 Apple ID</p></div>
+                                    <div className="flex gap-3 items-start"><span className="bg-blue-600/20 text-blue-400 w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 mt-0.5">2</span><p>下载 Shadowrocket (小火箭)</p></div>
+                                    <div className="flex gap-3 items-start"><span className="bg-blue-600/20 text-blue-400 w-5 h-5 rounded flex items-center justify-center text-xs shrink-0 mt-0.5">3</span><p>复制专用链接打开 (联系业务员)</p></div>
+                                </div>
+                                <button onClick={() => setShowTutorial(false)} className="w-full bg-[#2b5278] hover:bg-[#254666] text-white py-3 rounded-xl mt-6 font-bold">关闭</button>
                             </div>
                         </div>
                     )}
                     
-                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
+                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
                     {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
         }
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+        // 屏蔽常规快捷键
         document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='C'))||(e.ctrlKey&&(e.key==='s'||e.key==='S'))||(e.ctrlKey&&(e.key==='u'||e.key==='U'))||(e.ctrlKey&&(e.key==='l'||e.key==='L'))){e.preventDefault();return false;}});
     </script>
 </body>
