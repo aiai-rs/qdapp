@@ -425,27 +425,10 @@
                     return;
                 }
 
-                // 移除老板白名单限制，允许连接任何老板
-                const tempSocket = io(SOCKET_URL); 
-                let isResolved = false; // 增加并发锁防止重复跳转
-
-                tempSocket.emit('request_id', '@'+input, (newId) => { 
-                    if(isResolved) return;
-                    isResolved = true;
-                    tempSocket.disconnect(); setLoading(false); 
-                    doLogin(newId, '@'+input); 
-                }); 
-                
-                // iOS App 强制兜底：3秒无响应直接进入，解决进不去的问题
-                setTimeout(() => { 
-                    if(!isResolved) { 
-                        isResolved = true;
-                        setLoading(false); 
-                        tempSocket.disconnect();
-                        const fallbackId = Date.now().toString(); // 本地生成ID确保100%能进
-                        doLogin(fallbackId, '@'+input); 
-                    } 
-                }, 3000);
+                // 极速模式：直接本地生成ID进入，不再等待服务器响应，解决iOS转圈进不去的问题
+                const newId = Date.now().toString();
+                setLoading(false);
+                doLogin(newId, '@'+input);
             };
             
             const handleTyping = (e) => { 
@@ -571,83 +554,6 @@
                             </div>
                         </div>
                     )}
-                </div>
-            );
-
-            return (
-                <div className="flex flex-col w-full h-full bg-tg-bg">
-                    <TopToast msg={toast.msg} show={toast.show} />
-                    <header className="w-full bg-tg-header text-white pt-safe-header flex-shrink-0 z-50 border-b border-white/5 flex items-center justify-between px-4 shadow-md">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
-                            <div>
-                                <h3 className="font-bold text-sm">汇盈国际官方客服</h3>
-                                <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            {isIos && isStandalone && Notification.permission === 'default' && (
-                                <button onClick={requestNotificationPermission} className="bg-green-600/20 text-green-400 text-xs px-3 py-1.5 rounded-full border border-green-500/30 animate-pulse">开启通知</button>
-                            )}
-                            {!isStandalone && <button onClick={handleInstallAction} className="bg-white/5 hover:bg-white/10 text-blue-300 text-xs px-3 py-1.5 rounded-full border border-blue-500/30">APP</button>}
-                            <button onClick={() => setShowTutorial(true)} className="bg-white/5 hover:bg-white/10 text-tg-accent text-xs px-3 py-1.5 rounded-full border border-tg-accent/30">教程</button>
-                        </div>
-                    </header>
-
-                    <div className="ios-scroll p-4 space-y-3 bg-transparent">
-                        <div className="text-center py-2 animate-fade-in">
-                            <p className="text-gray-400 text-xs bg-black/20 inline-block px-3 py-1.5 rounded-full cursor-pointer hover:bg-black/30 transition-colors border border-white/5" onClick={isStandalone ? requestNotificationPermission : handleInstallAction}>
-                                🔔 {isStandalone ? "点此允许接收「离线消息」通知" : "点此开启「离线通知」，避免收不到回复 >"}
-                            </p>
-                        </div>
-                        {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-4">正在建立加密连接...</div>}
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                                <div className={`px-3 py-2.5 rounded-2xl text-sm max-w-[260px] break-words ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
-                                    {(msg.type === 'image' || msg.content.startsWith('data:') || msg.content.startsWith('blob:')) ? 
-                                        <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> 
-                                        : msg.content
-                                    }
-                                    <div className="flex justify-end items-center gap-1 mt-1"><span className="text-[10px] opacity-50">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>{msg.isFromUser && <IconStatus status={msg.status} />}</div>
-                                </div>
-                            </div>
-                        ))}
-                        {adminTyping && <div className="bg-tg-secondary px-3 py-2 rounded-xl w-12 flex gap-1 ml-1 mb-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.1s'}}></div><div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0.2s'}}></div></div>}
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    <div className="bg-tg-header p-3 pb-safe border-t border-white/5 shrink-0 flex gap-2 items-center">
-                        <label className="text-gray-400 p-2"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
-                        <textarea id="chat-input" rows="1" value={chatInput} onChange={handleTyping} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} className="flex-1 bg-black/20 rounded-lg text-white text-sm p-2 outline-none border border-transparent focus:border-blue-500/50 transition-all resize-none" placeholder="输入消息..."></textarea>
-                        <button onClick={handleSend} className="p-2 px-4 rounded-xl text-white bg-tg-accent font-bold text-sm shadow-lg">发送</button>
-                    </div>
-                    
-                    {previewImg && <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/95 backdrop-blur-md" onClick={() => setPreviewImg(null)}><img src={previewImg} className="max-w-screen max-h-screen object-contain" /></div>}
-                    
-                    {showTutorial && (
-                        <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowTutorial(false)}>
-                            <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-5" onClick={e => e.stopPropagation()}>
-                                <div className="flex items-center justify-center gap-2 mb-3">
-                                    <span className="text-xl">🚀</span>
-                                    <h3 className="font-bold text-white text-lg">快速教程</h3>
-                                </div>
-                                {userId && (
-                                    <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4 text-left">
-                                        <p className="text-blue-400 text-xs mb-1">您的 ID: <span className="text-white font-mono font-bold select-all text-sm">{userId}</span></p>
-                                        <p className="text-blue-400 text-xs">当前老板: <span className="text-white font-mono font-bold select-all text-sm">{bossId}</span></p>
-                                        <p className="text-gray-400 text-[10px] mt-1 pt-1 border-t border-white/10">截图此画面。若APP聊天记录丢失，发送此ID给客服可找回。</p>
-                                    </div>
-                                )}
-                                <div className="text-left text-xs text-gray-300 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">
-                                    <p>1. 获取美区 Apple ID（联系业务员获取）<br/>2. 下载 Shadowrocket（联系业务员获取）<br/>3. 复制链接打开（联系业务员获取）</p>
-                                </div>
-                                <button onClick={() => setShowTutorial(false)} className="w-full bg-tg-accent text-white py-3 rounded-xl font-bold">关闭</button>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
-                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
                 </div>
             );
         }
