@@ -357,7 +357,21 @@
                     socketRef.current.on('connect', () => socketRef.current.emit('join', { userId: uid, bossId: bid }));
                     
                     socketRef.current.on('receive_message', (msg) => {
-                        setMessages(prev => { if (prev.some(m => m.id === msg.id)) return prev; return [...prev, msg]; });
+                        // 修改：解决发送图片时显示两张图片的问题
+                        setMessages(prev => { 
+                            // 检查是否存在相同ID的消息，或者临时ID匹配的消息
+                            const existingIndex = prev.findIndex(m => m.id === msg.id || (msg.tempId && m.id === msg.tempId));
+                            
+                            if (existingIndex > -1) {
+                                // 如果找到，替换它（将临时消息变为正式消息）
+                                const newArr = [...prev];
+                                newArr[existingIndex] = msg;
+                                return newArr;
+                            }
+                            // 如果没找到，追加新消息
+                            return [...prev, msg]; 
+                        });
+
                         if(!msg.isFromUser) { 
                             triggerToast(msg.content); 
                             try { 
@@ -418,7 +432,9 @@
                 // 修改：增加用户名白名单验证
                 const allowedUsers = ['rrii8', 'iibb8'];
                 if (!allowedUsers.includes(input)) {
-                    setErrorMsg('无效的用户名');
+                    setErrorMsg('找不到该老板，请仔细核对广告中的信息！');
+                    setIsShake(true); // 触发抖动
+                    setTimeout(() => setIsShake(false), 500); // 重置抖动状态
                     setLoading(false);
                     return;
                 }
@@ -485,12 +501,17 @@
             if (step === 'login') return (
                 <div className="flex flex-col justify-center px-8 relative font-sans w-full bg-login-bg h-full">
                     <div className="z-10 w-full max-w-[340px] mx-auto">
-                        {/* 修改：将标题区域改为居中图标+文字，匹配图片样式 */}
                         <div className="flex flex-col items-center mb-6">
                             <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 shadow-xl">
                                 <span className="text-white font-bold text-xl">HY</span>
                             </div>
                             <h1 className="text-[30px] font-black text-white text-center">汇盈国际客服</h1>
+                        </div>
+
+                        <p className="text-gray-400 text-[15px] mb-6 font-medium text-center">请输入广告中老板的 <span className="text-login-textSub font-bold">Telegram 用户名</span></p>
+                        <div className="mb-6 flex items-start gap-2.5 bg-red-900/10 p-2 rounded-lg border border-red-500/10">
+                            <span className="text-yellow-500 text-sm mt-0.5 shrink-0">⚠️</span>
+                            <span className="text-login-textWarn text-[13px] font-bold leading-tight tracking-wide text-left">老板仅用 Telegram，请务必联系业务员，业务员会教你使用Telegram来与老板联系</span>
                         </div>
 
                         <div className="space-y-6">
@@ -573,7 +594,6 @@
                         {messages.length===0 && <div className="text-center text-gray-500 text-xs mt-4">正在建立加密连接...</div>}
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.isFromUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                                {/* 修改：增加 whitespace-pre-wrap 样式，允许后端发送的换行符生效 */}
                                 <div className={`px-3 py-2.5 rounded-2xl text-sm max-w-[260px] break-words whitespace-pre-wrap ${msg.isFromUser ? 'bg-tg-blue text-white rounded-tr-sm' : 'bg-tg-secondary text-white rounded-tl-sm'}`}>
                                     {(msg.type === 'image' || msg.content.startsWith('data:') || msg.content.startsWith('blob:')) ? 
                                         <img src={msg.content} className="max-w-[200px] rounded-lg" onClick={() => setPreviewImg(msg.content)} /> 
@@ -621,7 +641,8 @@
         }
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
-        document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='C'))||(e.ctrlKey&&(e.key==='s'||e.key==='S'))||(e.ctrlKey&&(e.key==='u'||e.key==='U'))||(e.ctrlKey&&(e.key==='l'||e.key==='L'))){e.preventDefault();return false;}});
+        // 修改：严格禁用 F12, Ctrl+S, Ctrl+U, Ctrl+I, Ctrl+L
+        document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&(e.key==='s'||e.key==='S'))||(e.ctrlKey&&(e.key==='u'||e.key==='U'))||(e.ctrlKey&&(e.key==='i'||e.key==='I'))||(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='i'))||(e.ctrlKey&&(e.key==='l'||e.key==='L'))){e.preventDefault();return false;}});
     </script>
 </body>
 </html>
