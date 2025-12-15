@@ -245,7 +245,6 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // 修复自动登录URL参数：登录成功后，立即把 bossId 也塞进 URL
             useEffect(() => {
                 if (userId && bossId && isIos) {
                     const newUrl = new URL(window.location);
@@ -260,6 +259,7 @@
             }, [userId, bossId, isIos]);
 
             const handleInstallAction = () => {
+                requestNotificationPermission(); // 点击时强制请求权限
                 if (isIos) setShowIosGuide(true);
                 else if (canInstall && installPrompt) {
                     installPrompt.prompt();
@@ -334,6 +334,7 @@
                 setMessages([]); setUserId(''); setStep('login'); 
                 if(socketRef.current) socketRef.current.disconnect();
                 if(reason) alert(reason);
+                location.reload(); // 强制刷新
             };
 
             const initSocket = (uid, bid) => {
@@ -358,7 +359,12 @@
                         if(typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
                         if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000);
                     });
-                    socketRef.current.on('messages_read_update', () => setMessages(prev => prev.map(m => m.isFromUser ? { ...m, status: 'read' } : m)));
+                    
+                    // 修复：后台合并后，触发此事件，前端自动刷新历史消息
+                    socketRef.current.on('messages_read_update', () => {
+                        fetchMessages(uid); 
+                    });
+                    
                     socketRef.current.on('force_logout', () => forceLogoutNow("⚠️ 您的会话已结束"));
                     socketRef.current.on('force_logout_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
                     socketRef.current.on('admin_user_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
@@ -369,7 +375,7 @@
             };
 
             const handleLoginBtn = () => { 
-                if("Notification" in window) Notification.requestPermission();
+                requestNotificationPermission(); // 登录时也请求一次权限
                 setErrorMsg(''); setLoading(true);
                 
                 if (showRecover) {
@@ -388,14 +394,10 @@
                 if (validBosses.includes(input)) { 
                     const tempSocket = io(SOCKET_URL); 
                     tempSocket.emit('request_id', '@'+input, (newId) => { 
-                        tempSocket.disconnect(); 
-                        setLoading(false); 
-                        // 登录成功后，手动调用 doLogin 触发跳转
+                        tempSocket.disconnect(); setLoading(false); 
                         doLogin(newId, '@'+input); 
                     }); 
-                } else { 
-                    setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); 
-                } 
+                } else { setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); } 
             };
             
             const handleTyping = (e) => { 
@@ -405,7 +407,6 @@
 
             const handleSend = () => { 
                 if (!chatInput.trim()) return; 
-                // 修复：发消息时带上 bossId，这样后端才能更新老板归属
                 const msgData = { userId, content: chatInput, type: 'text', isFromUser: true, createdAt: new Date(), status: 'sent', bossId }; 
                 socketRef.current.emit('send_message', msgData); 
                 socketRef.current.emit('typing', { targetId: 'admin', isTyping: false });
@@ -417,7 +418,6 @@
                 if (!file) return; 
                 const previewUrl = URL.createObjectURL(file);
                 const tempId = Date.now();
-                // 修复：发图片时也带上 bossId
                 const tempMsg = { id: tempId, userId, content: previewUrl, type: 'image', isFromUser: true, status: 'sending', createdAt: new Date(), bossId };
                 setMessages(prev => [...prev, tempMsg]);
                 e.target.value = ''; 
@@ -438,9 +438,10 @@
                             <p className="text-white font-bold text-lg">{title}</p>
                         </div>
                         {userId && (
-                            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4">
-                                <p className="text-blue-400 text-xs mb-1">您的恢复 ID (已自动同步):</p>
-                                <p className="text-white font-mono text-xl font-bold select-all">{userId}</p>
+                            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4 text-left">
+                                <p className="text-blue-400 text-xs mb-1">您的 ID: <span className="text-white font-mono font-bold select-all text-sm">{userId}</span></p>
+                                <p className="text-blue-400 text-xs">当前老板: <span className="text-white font-mono font-bold select-all text-sm">{bossId}</span></p>
+                                <p className="text-gray-400 text-[10px] mt-1 pt-1 border-t border-white/10">截图此画面。若APP记录丢失，发送此ID给客服可找回。</p>
                             </div>
                         )}
                         <div className="text-left text-xs text-gray-300 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
@@ -505,12 +506,11 @@
             return (
                 <div className="flex flex-col w-full h-full bg-tg-bg">
                     <TopToast msg={toast.msg} show={toast.show} />
-                    
                     <header className="w-full bg-tg-header text-white pt-safe-header flex-shrink-0 z-50 border-b border-white/5 flex items-center justify-between px-4 shadow-md">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
                             <div>
-                                <h3 className="font-bold text-sm">客服 ({bossId.replace('@','')})</h3>
+                                <h3 className="font-bold text-sm">汇盈国际客服</h3>
                                 <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
                             </div>
                         </div>
