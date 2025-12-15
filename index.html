@@ -292,7 +292,7 @@
             const requestNotificationPermission = async () => {
                 if (!('Notification' in window)) return;
                 const permission = await Notification.requestPermission();
-                if (permission === 'granted') { registerPush(userId); alert("✅ 离线通知已开启！"); }
+                if (permission === 'granted') { registerPush(userId); }
             };
 
             useEffect(() => {
@@ -330,11 +330,17 @@
             };
             
             const forceLogoutNow = (reason) => {
-                localStorage.removeItem('hy_uid');
-                setMessages([]); setUserId(''); setStep('login'); 
+                localStorage.removeItem('hy_uid'); // 明确删除缓存
+                localStorage.removeItem('hy_boss'); // 明确删除缓存
+                localStorage.clear(); // 清空所有
+                setMessages([]); 
+                setUserId(''); 
+                setBossId(''); // 确保状态也被重置
+                setStep('login'); 
                 if(socketRef.current) socketRef.current.disconnect();
-                if(reason) alert(reason);
-                location.reload(); // 强制刷新
+                // 关键修正：使用 replaceState 清除 URL 参数而不刷新页面，防止刷新后死循环重新登录
+                window.history.replaceState(null, '', window.location.pathname);
+                if(reason) setErrorMsg(reason); // 使用 UI 错误提示代替 alert，体验更好
             };
 
             const initSocket = (uid, bid) => {
@@ -346,7 +352,15 @@
                         setMessages(prev => { if (prev.some(m => m.id === msg.id)) return prev; return [...prev, msg]; });
                         if(!msg.isFromUser) { 
                             triggerToast(msg.content); 
-                            try { const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200]); } catch(e){} 
+                            try { 
+                                const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); 
+                                if(navigator.vibrate) navigator.vibrate([200]); 
+                                
+                                // 系统弹窗通知
+                                if (Notification.permission === 'granted' && document.hidden) {
+                                    new Notification("汇盈国际 - 新消息", { body: msg.content.startsWith('data:') ? '[图片]' : msg.content, icon: '/icon-192.png' });
+                                }
+                            } catch(e){} 
                             if(document.hidden) flashTitle(true);
                             setAdminTyping(false);
                             if (document.visibilityState === 'visible') socketRef.current.emit('mark_read', { userId: uid, isAdmin: false }); 
@@ -369,6 +383,7 @@
                     socketRef.current.on('force_logout_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
                     socketRef.current.on('admin_user_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
                     socketRef.current.on('admin_db_cleared', () => forceLogoutNow("⚠️ 系统维护，请重新连接"));
+                    socketRef.current.on('history_cleared', () => forceLogoutNow("⚠️ 聊天记录已重置，请重新登录"));
 
                     fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); });
                 } catch (e) {}
@@ -390,14 +405,14 @@
                 }
 
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
-                const validBosses = ['rrii8', 'iibb8']; 
-                if (validBosses.includes(input)) { 
-                    const tempSocket = io(SOCKET_URL); 
-                    tempSocket.emit('request_id', '@'+input, (newId) => { 
-                        tempSocket.disconnect(); setLoading(false); 
-                        doLogin(newId, '@'+input); 
-                    }); 
-                } else { setLoading(false); setErrorMsg('未找到该老板用户名'); setIsShake(true); setTimeout(() => setIsShake(false), 400); } 
+                if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
+
+                // 移除老板白名单限制，允许连接任何老板
+                const tempSocket = io(SOCKET_URL); 
+                tempSocket.emit('request_id', '@'+input, (newId) => { 
+                    tempSocket.disconnect(); setLoading(false); 
+                    doLogin(newId, '@'+input); 
+                }); 
             };
             
             const handleTyping = (e) => { 
@@ -441,7 +456,7 @@
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4 text-left">
                                 <p className="text-blue-400 text-xs mb-1">您的 ID: <span className="text-white font-mono font-bold select-all text-sm">{userId}</span></p>
                                 <p className="text-blue-400 text-xs">当前老板: <span className="text-white font-mono font-bold select-all text-sm">{bossId}</span></p>
-                                <p className="text-gray-400 text-[10px] mt-1 pt-1 border-t border-white/10">截图此画面。若APP记录丢失，发送此ID给客服可找回。</p>
+                                <p className="text-gray-400 text-[10px] mt-1 pt-1 border-t border-white/10">截图此画面。若APP聊天记录丢失，发送此ID给客服可找回。</p>
                             </div>
                         )}
                         <div className="text-left text-xs text-gray-300 space-y-3 mb-5 bg-black/30 p-4 rounded-xl">{children}</div>
@@ -510,7 +525,7 @@
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">HY</div>
                             <div>
-                                <h3 className="font-bold text-sm">汇盈国际客服</h3>
+                                <h3 className="font-bold text-sm">汇盈国际官方客服</h3>
                                 <p className={`text-[10px] ${workStatus.color}`}>{workStatus.text}</p>
                             </div>
                         </div>
