@@ -183,7 +183,7 @@
 
             const isAndroid = /Android/i.test(navigator.userAgent);
             const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone;
             
             const [step, setStep] = useState('loading'); 
             const [loginInput, setLoginInput] = useState('');
@@ -215,6 +215,9 @@
             const socketRef = useRef(null);
             const messagesEndRef = useRef(null);
             const typingTimeoutRef = useRef(null);
+            
+            // 修复安卓重复发图：增加锁机制
+            const isUploadingRef = useRef(false);
 
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
@@ -247,6 +250,7 @@
             }, []);
 
             useEffect(() => {
+                // 建议安装弹窗：进入聊天界面后3秒弹出
                 if (step === 'chat' && !isStandalone && !localStorage.getItem('hy_install_hint')) {
                     const timer = setTimeout(() => setShowInstallHint(true), 3000); 
                     return () => clearTimeout(timer);
@@ -318,7 +322,7 @@
             const doLogin = (uid, bid) => { 
                 if(socketRef.current) socketRef.current.disconnect(); 
                 
-                // 仅做基础本地存储，移除所有URL操作防止iOS PWA卡死
+                // 彻底解决 iOS 问题：同步写入缓存并切换界面，不等待 URL 变化
                 localStorage.setItem('hy_uid', uid);
                 localStorage.setItem('hy_boss', bid);
                 
@@ -414,14 +418,15 @@
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
 
-                // 严格白名单校验
+                // 严格白名单校验 + 抖动效果
                 if (input !== 'rrii8' && input !== 'iibb8') {
                     setErrorMsg('没有找到该老板请仔细核对广告中的Telegram用户名！');
+                    setIsShake(true);
+                    setTimeout(() => setIsShake(false), 500); // 500ms后复位抖动
                     setLoading(false);
                     return;
                 }
 
-                // 移除老板白名单限制，允许连接任何老板
                 const tempSocket = io(SOCKET_URL); 
                 tempSocket.emit('request_id', '@'+input, (newId) => { 
                     tempSocket.disconnect(); setLoading(false); 
@@ -445,19 +450,31 @@
             };
             
             const handleImageUpload = async (e) => { 
+                // 修复安卓重复发图：增加锁机制
+                if (isUploadingRef.current) return;
+                
                 const file = e.target.files[0]; 
                 if (!file) return; 
+
+                isUploadingRef.current = true; // 加锁
+                
                 const previewUrl = URL.createObjectURL(file);
                 const tempId = Date.now();
                 const tempMsg = { id: tempId, userId, content: previewUrl, type: 'image', isFromUser: true, status: 'sending', createdAt: new Date(), bossId };
                 setMessages(prev => [...prev, tempMsg]);
                 e.target.value = ''; 
+                
                 setTimeout(async () => {
                     try { 
                         const base64 = await compressImage(file);
                         socketRef.current.emit('send_message', { ...tempMsg, content: base64, bossId });
                         setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'sent' } : m));
-                    } catch(e) { alert("图片处理失败"); setMessages(prev => prev.filter(m => m.id !== tempId)); } 
+                    } catch(err) { 
+                        alert("图片处理失败"); 
+                        setMessages(prev => prev.filter(m => m.id !== tempId)); 
+                    } finally {
+                        isUploadingRef.current = false; // 解锁
+                    }
                 }, 10);
             };
 
