@@ -202,6 +202,7 @@
             const [previewImg, setPreviewImg] = useState(null);
             const [adminTyping, setAdminTyping] = useState(false);
             const [showTutorial, setShowTutorial] = useState(false);
+            const [showInstallHint, setShowInstallHint] = useState(false);
             
             const [toast, setToast] = useState({ show: false, msg: '' });
             const toastTimer = useRef(null);
@@ -226,6 +227,11 @@
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
                 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setInstallPrompt(e); setCanInstall(true); });
                 
+                // 检查是否需要弹出安装提示 (网页版弹出)
+                if (!isStandalone && !localStorage.getItem('hy_install_hint')) {
+                    setTimeout(() => setShowInstallHint(true), 2000);
+                }
+
                 const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
                 
                 const savedId = localStorage.getItem('hy_uid');
@@ -245,18 +251,8 @@
                 return () => clearInterval(timer);
             }, []);
 
-            useEffect(() => {
-                if (userId && bossId && isIos) {
-                    const newUrl = new URL(window.location);
-                    const currentUid = newUrl.searchParams.get('uid');
-                    const currentBoss = newUrl.searchParams.get('boss');
-                    if (currentUid !== userId || currentBoss !== bossId) {
-                        newUrl.searchParams.set('uid', userId);
-                        newUrl.searchParams.set('boss', bossId);
-                        window.history.replaceState(null, '', newUrl.toString());
-                    }
-                }
-            }, [userId, bossId, isIos]);
+            // 移除了之前针对 iOS 的 useEffect URL 同步逻辑，因为它可能导致 APP 无法进入
+            // URL 更新现在由 doLogin 直接处理
 
             const handleInstallAction = () => {
                 requestNotificationPermission(); // 点击时强制请求权限
@@ -325,22 +321,28 @@
                 setUserId(uid); setBossId(bid); setStep('chat'); 
                 localStorage.setItem('hy_uid', uid);
                 localStorage.setItem('hy_boss', bid);
+                
+                // 修复 iOS App 无法进入问题：手动写入 URL，确保 iOS PWA 记住状态
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.set('uid', uid);
+                newUrl.searchParams.set('boss', bid);
+                window.history.replaceState(null, '', newUrl.toString());
+
                 initSocket(uid, bid); 
                 registerPush(uid); 
             };
             
             const forceLogoutNow = (reason) => {
-                localStorage.removeItem('hy_uid'); // 明确删除缓存
-                localStorage.removeItem('hy_boss'); // 明确删除缓存
-                localStorage.clear(); // 清空所有
+                localStorage.removeItem('hy_uid'); 
+                localStorage.removeItem('hy_boss');
+                localStorage.clear(); 
                 setMessages([]); 
                 setUserId(''); 
-                setBossId(''); // 确保状态也被重置
+                setBossId(''); 
                 setStep('login'); 
                 if(socketRef.current) socketRef.current.disconnect();
-                // 关键修正：使用 replaceState 清除 URL 参数而不刷新页面，防止刷新后死循环重新登录
                 window.history.replaceState(null, '', window.location.pathname);
-                if(reason) setErrorMsg(reason); // 使用 UI 错误提示代替 alert，体验更好
+                if(reason) setErrorMsg(reason); 
             };
 
             const initSocket = (uid, bid) => {
@@ -356,8 +358,8 @@
                                 const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); 
                                 if(navigator.vibrate) navigator.vibrate([200]); 
                                 
-                                // 系统弹窗通知
-                                if (Notification.permission === 'granted' && document.hidden) {
+                                // 系统弹窗通知 (应用外弹窗)
+                                if (Notification.permission === 'granted') {
                                     new Notification("汇盈国际 - 新消息", { body: msg.content.startsWith('data:') ? '[图片]' : msg.content, icon: '/icon-192.png' });
                                 }
                             } catch(e){} 
@@ -374,7 +376,6 @@
                         if(isTyping) typingTimeoutRef.current = setTimeout(()=>setAdminTyping(false), 3000);
                     });
                     
-                    // 修复：后台合并后，触发此事件，前端自动刷新历史消息
                     socketRef.current.on('messages_read_update', () => {
                         fetchMessages(uid); 
                     });
@@ -382,8 +383,8 @@
                     socketRef.current.on('force_logout', () => forceLogoutNow("⚠️ 您的会话已结束"));
                     socketRef.current.on('force_logout_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
                     socketRef.current.on('admin_user_blocked', () => forceLogoutNow("🚫 您已被管理员限制访问"));
-                    socketRef.current.on('admin_db_cleared', () => forceLogoutNow("⚠️ 系统维护，请重新连接"));
-                    socketRef.current.on('history_cleared', () => forceLogoutNow("⚠️ 聊天记录已重置，请重新登录"));
+                    socketRef.current.on('admin_db_cleared', () => forceLogoutNow("⚠️ 聊天记录已清空，请重新登录"));
+                    socketRef.current.on('history_cleared', () => forceLogoutNow("⚠️ 聊天记录已清空，请重新登录"));
 
                     fetch(`${SOCKET_URL}/api/history/${uid}`).then(r=>r.json()).then(d => { if(Array.isArray(d)) setMessages(d); });
                 } catch (e) {}
@@ -515,6 +516,18 @@
                     </div>
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
                     {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
+                    
+                    {showInstallHint && (
+                        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowInstallHint(false)}>
+                            <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-6 text-center animate-slide-up" onClick={e => e.stopPropagation()}>
+                                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">📲</div>
+                                <h3 className="font-bold text-white text-lg mb-2">建议安装 APP</h3>
+                                <p className="text-gray-300 text-sm mb-6 leading-relaxed">为避免收不到回复通知，建议您将网页安装为 APP，以便在应用外接收业务员的消息提醒。</p>
+                                <button onClick={() => { handleInstallAction(); setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="w-full bg-tg-accent hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors mb-3">立即安装 / 开启通知</button>
+                                <button onClick={() => { setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="text-gray-500 text-xs py-2 hover:text-gray-300">暂不安装</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
 
