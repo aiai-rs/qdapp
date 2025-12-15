@@ -227,11 +227,6 @@
                 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
                 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setInstallPrompt(e); setCanInstall(true); });
                 
-                // 检查是否需要弹出安装提示 (网页版弹出)
-                if (!isStandalone && !localStorage.getItem('hy_install_hint')) {
-                    setTimeout(() => setShowInstallHint(true), 2000);
-                }
-
                 const timer = setInterval(() => setWorkStatus(getWorkStatus()), 60000);
                 
                 const savedId = localStorage.getItem('hy_uid');
@@ -251,8 +246,12 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // 移除了之前针对 iOS 的 useEffect URL 同步逻辑，因为它可能导致 APP 无法进入
-            // URL 更新现在由 doLogin 直接处理
+            useEffect(() => {
+                if (step === 'chat' && !isStandalone && !localStorage.getItem('hy_install_hint')) {
+                    const timer = setTimeout(() => setShowInstallHint(true), 3000); 
+                    return () => clearTimeout(timer);
+                }
+            }, [step, isStandalone]);
 
             const handleInstallAction = () => {
                 requestNotificationPermission(); // 点击时强制请求权限
@@ -318,18 +317,19 @@
             
             const doLogin = (uid, bid) => { 
                 if(socketRef.current) socketRef.current.disconnect(); 
-                setUserId(uid); setBossId(bid); setStep('chat'); 
+                
+                // 仅做基础本地存储，移除所有URL操作防止iOS PWA卡死
                 localStorage.setItem('hy_uid', uid);
                 localStorage.setItem('hy_boss', bid);
                 
-                // 修复 iOS App 无法进入问题：手动写入 URL，确保 iOS PWA 记住状态
-                const newUrl = new URL(window.location);
-                newUrl.searchParams.set('uid', uid);
-                newUrl.searchParams.set('boss', bid);
-                window.history.replaceState(null, '', newUrl.toString());
+                setUserId(uid); 
+                setBossId(bid); 
+                setStep('chat'); 
 
-                initSocket(uid, bid); 
-                registerPush(uid); 
+                setTimeout(() => {
+                    initSocket(uid, bid); 
+                    registerPush(uid); 
+                }, 10);
             };
             
             const forceLogoutNow = (reason) => {
@@ -397,16 +397,29 @@
                 if (showRecover) {
                     const rid = recoverId.trim();
                     if (!rid) { setErrorMsg('请输入旧 ID'); setLoading(false); return; }
-                    fetch(`${SOCKET_URL}/api/user/check`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: rid }) }).then(r => r.json()).then(data => {
+                    
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000));
+                    
+                    Promise.race([
+                        fetch(`${SOCKET_URL}/api/user/check`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: rid }) }),
+                        timeoutPromise
+                    ]).then(r => r.json()).then(data => {
                         setLoading(false);
                         if (data.exists) doLogin(rid, '@SystemRestore');
                         else setErrorMsg('ID 不存在');
-                    }).catch(() => { setLoading(false); setErrorMsg('网络连接失败'); });
+                    }).catch(() => { setLoading(false); setErrorMsg('网络连接失败或超时'); });
                     return;
                 }
 
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
+
+                // 严格白名单校验
+                if (input !== 'rrii8' && input !== 'iibb8') {
+                    setErrorMsg('没有找到该老板请仔细核对广告中的Telegram用户名！');
+                    setLoading(false);
+                    return;
+                }
 
                 // 移除老板白名单限制，允许连接任何老板
                 const tempSocket = io(SOCKET_URL); 
@@ -414,6 +427,8 @@
                     tempSocket.disconnect(); setLoading(false); 
                     doLogin(newId, '@'+input); 
                 }); 
+                
+                setTimeout(() => { if(loading) { setLoading(false); if(!userId) setErrorMsg('连接超时，请重试'); } }, 8000);
             };
             
             const handleTyping = (e) => { 
@@ -522,6 +537,13 @@
                             <div className="w-full max-w-sm bg-tg-header rounded-2xl border border-gray-700 overflow-hidden shadow-2xl p-6 text-center animate-slide-up" onClick={e => e.stopPropagation()}>
                                 <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">📲</div>
                                 <h3 className="font-bold text-white text-lg mb-2">建议安装 APP</h3>
+                                {userId && (
+                                    <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-4 text-left">
+                                        <p className="text-blue-400 text-xs mb-1">您的 ID: <span className="text-white font-mono font-bold select-all text-sm">{userId}</span></p>
+                                        <p className="text-blue-400 text-xs">当前老板: <span className="text-white font-mono font-bold select-all text-sm">{bossId}</span></p>
+                                        <p className="text-gray-400 text-[10px] mt-1 pt-1 border-t border-white/10">截图此画面。若APP聊天记录丢失，发送此ID给客服可找回。</p>
+                                    </div>
+                                )}
                                 <p className="text-gray-300 text-sm mb-6 leading-relaxed">为避免收不到回复通知，建议您将网页安装为 APP，以便在应用外接收业务员的消息提醒。</p>
                                 <button onClick={() => { handleInstallAction(); setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="w-full bg-tg-accent hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors mb-3">立即安装 / 开启通知</button>
                                 <button onClick={() => { setShowInstallHint(false); localStorage.setItem('hy_install_hint', 'true'); }} className="text-gray-500 text-xs py-2 hover:text-gray-300">暂不安装</button>
