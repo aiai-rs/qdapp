@@ -266,13 +266,33 @@
                 }
             }, [userId, bossId, isIos]);
 
+            // 修改：增强安卓安装引导逻辑，类似微信弹窗
             const handleInstallAction = () => {
                 requestNotificationPermission(); // 点击时强制请求权限
-                if (isIos) setShowIosGuide(true);
-                else if (canInstall && installPrompt) {
-                    installPrompt.prompt();
-                    installPrompt.userChoice.then((res) => { if (res.outcome === 'accepted') setCanInstall(false); setInstallPrompt(null); });
-                } else setShowAndroidGuide(true);
+                if (isIos) {
+                    setShowIosGuide(true);
+                } else if (isAndroid) {
+                    // 安卓设备：优先尝试调起原生安装，如果不行或需要提醒权限，显示引导
+                    if (canInstall && installPrompt) {
+                        installPrompt.prompt();
+                        installPrompt.userChoice.then((res) => { 
+                            if (res.outcome === 'accepted') {
+                                setCanInstall(false); 
+                                setInstallPrompt(null); 
+                            }
+                        });
+                    } else {
+                        // 如果不能直接安装（已安装或浏览器不支持），弹出类似微信的引导设置
+                        setShowAndroidGuide(true);
+                    }
+                } else {
+                    // 电脑端等
+                     if (canInstall && installPrompt) {
+                         installPrompt.prompt();
+                     } else {
+                         setShowAndroidGuide(true);
+                     }
+                }
             };
 
             const triggerToast = (content) => {
@@ -338,17 +358,16 @@
             };
             
             const forceLogoutNow = (reason) => {
-                localStorage.removeItem('hy_uid'); // 明确删除缓存
-                localStorage.removeItem('hy_boss'); // 明确删除缓存
-                localStorage.clear(); // 清空所有
+                localStorage.removeItem('hy_uid'); 
+                localStorage.removeItem('hy_boss'); 
+                localStorage.clear(); 
                 setMessages([]); 
                 setUserId(''); 
-                setBossId(''); // 确保状态也被重置
+                setBossId(''); 
                 setStep('login'); 
                 if(socketRef.current) socketRef.current.disconnect();
-                // 关键修正：使用 replaceState 清除 URL 参数而不刷新页面，防止刷新后死循环重新登录
                 window.history.replaceState(null, '', window.location.pathname);
-                if(reason) setErrorMsg(reason); // 使用 UI 错误提示代替 alert，体验更好
+                if(reason) setErrorMsg(reason); 
             };
 
             const initSocket = (uid, bid) => {
@@ -357,18 +376,13 @@
                     socketRef.current.on('connect', () => socketRef.current.emit('join', { userId: uid, bossId: bid }));
                     
                     socketRef.current.on('receive_message', (msg) => {
-                        // 修改：解决发送图片时显示两张图片的问题
                         setMessages(prev => { 
-                            // 检查是否存在相同ID的消息，或者临时ID匹配的消息
                             const existingIndex = prev.findIndex(m => m.id === msg.id || (msg.tempId && m.id === msg.tempId));
-                            
                             if (existingIndex > -1) {
-                                // 如果找到，替换它（将临时消息变为正式消息）
                                 const newArr = [...prev];
                                 newArr[existingIndex] = msg;
                                 return newArr;
                             }
-                            // 如果没找到，追加新消息
                             return [...prev, msg]; 
                         });
 
@@ -378,7 +392,6 @@
                                 const a = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjgzLjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAABAAAAAAAAAAAAkJAAAgAAAABBjatLUkAAALiI1yUIAAAAAA//uQZAAABHpWUNzgAAIE6sobnAAACW1lS+w8AAiVrKl9h4AAAD/8z/8///4v/9P/8v8Z///4iH/////5MAAiAAACAAAAABAA8AAAAA//uQZAEABdZRVH5gAAl1lKU/mAAAggVlS+w8AAhxrKl9h4AAAAv///4DAAEAJgAOAFAAbAB8AIAAxADoAPABSAHAAgACWAKgArAC8AMQA0gDeAOwA+gEIAQwBGgEgASgBLAEyAToBQAFIAT4BRAFQAVgBXAFkAWgBcAF4AYABiAGMAZgBoAGoAbABuAHAAcgB0AHYAxQD9AP8BAQEDAv///wAAAAAA"); a.play().catch(()=>{}); 
                                 if(navigator.vibrate) navigator.vibrate([200]); 
                                 
-                                // 系统弹窗通知 (这就是应用外的弹窗)
                                 if (Notification.permission === 'granted' && document.hidden) {
                                     new Notification("汇盈国际 - 新消息", { body: msg.content.startsWith('data:') ? '[图片]' : msg.content, icon: '/icon-192.png' });
                                 }
@@ -389,7 +402,6 @@
                         }
                     });
                     
-                    // markdown 修改：将 !== 改为 !=，确保数字/字符串ID不匹配时也能删除
                     socketRef.current.on('message_deleted', ({ messageId }) => setMessages(prev => prev.filter(m => m.id != messageId)));
                     socketRef.current.on('display_typing', ({ isTyping }) => { 
                         setAdminTyping(isTyping); 
@@ -413,7 +425,7 @@
             };
 
             const handleLoginBtn = () => { 
-                requestNotificationPermission(); // 登录时也请求一次权限
+                requestNotificationPermission(); 
                 setErrorMsg(''); setLoading(true);
                 
                 if (showRecover) {
@@ -421,7 +433,6 @@
                     if (!rid) { setErrorMsg('请输入旧 ID'); setLoading(false); return; }
                     fetch(`${SOCKET_URL}/api/user/check`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: rid }) }).then(r => r.json()).then(data => {
                         setLoading(false);
-                        // markdown 修改：找回账号时传空字符串作为bossId，这样后端不会覆盖原有的boss归属，后台就能显示正确的老板
                         if (data.exists) doLogin(rid, '');
                         else setErrorMsg('ID 不存在');
                     }).catch(() => { setLoading(false); setErrorMsg('网络连接失败'); });
@@ -431,12 +442,11 @@
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
 
-                // 修改：增加用户名白名单验证
                 const allowedUsers = ['rrii8', 'iibb8'];
                 if (!allowedUsers.includes(input)) {
                     setErrorMsg('找不到该老板，请仔细核对广告中的信息！');
-                    setIsShake(true); // 触发抖动
-                    setTimeout(() => setIsShake(false), 500); // 重置抖动状态
+                    setIsShake(true); 
+                    setTimeout(() => setIsShake(false), 500); 
                     setLoading(false);
                     return;
                 }
@@ -554,7 +564,16 @@
                         </div>
                     </div>
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
-                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
+                    
+                    {/* 修改：安卓引导模态框内容，模拟微信的设置引导 */}
+                    {showAndroidGuide && <GuideModal title="安卓/通知设置" onClose={()=>setShowAndroidGuide(false)}>
+                        <p>1. 请点击浏览器菜单 <span className="text-white font-bold">(⋮)</span></p>
+                        <p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p>
+                        <hr className="border-gray-600 my-2" />
+                        <p className="text-yellow-400">⚠️ 若无法接收消息：</p>
+                        <p>3. 请确保允许浏览器发送<span className="text-white font-bold">通知</span>权限</p>
+                        <button onClick={requestNotificationPermission} className="mt-2 bg-gray-700 text-xs px-2 py-1 rounded border border-gray-600">点击此处开启通知权限</button>
+                    </GuideModal>}
                     
                     {showInstallHint && (
                         <GuideModal title="⚠️ 消息防丢提醒" onClose={() => setShowInstallHint(false)}>
@@ -628,7 +647,16 @@
                     )}
                     
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
-                    {showAndroidGuide && <GuideModal title="安装到安卓/电脑" onClose={()=>setShowAndroidGuide(false)}><p>1. 点击浏览器右上角 <span className="text-white font-bold">菜单 (⋮)</span></p><p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p></GuideModal>}
+                    
+                    {/* 修改：将安卓弹窗逻辑整合进 handleInstallAction 和 GuideModal，此处只显示弹窗 */}
+                    {showAndroidGuide && <GuideModal title="安卓/通知设置" onClose={()=>setShowAndroidGuide(false)}>
+                        <p>1. 请点击浏览器菜单 <span className="text-white font-bold">(⋮)</span></p>
+                        <p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p>
+                        <hr className="border-gray-600 my-2" />
+                        <p className="text-yellow-400">⚠️ 若无法接收消息：</p>
+                        <p>3. 请确保允许浏览器发送<span className="text-white font-bold">通知</span>权限</p>
+                        <button onClick={requestNotificationPermission} className="mt-2 bg-gray-700 text-xs px-2 py-1 rounded border border-gray-600">点击此处开启通知权限</button>
+                    </GuideModal>}
                     
                     {showInstallHint && (
                         <GuideModal title="⚠️ 消息防丢提醒" onClose={() => setShowInstallHint(false)}>
