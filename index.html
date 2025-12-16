@@ -266,13 +266,11 @@
                 }
             }, [userId, bossId, isIos]);
 
-            // 修改：确保安卓引导逻辑符合要求
             const handleInstallAction = () => {
-                requestNotificationPermission(); // 点击时强制请求权限
+                requestNotificationPermission();
                 if (isIos) {
                     setShowIosGuide(true);
                 } else if (isAndroid) {
-                    // 安卓设备：优先尝试调起原生安装，如果不行或需要提醒权限，显示引导
                     if (canInstall && installPrompt) {
                         installPrompt.prompt();
                         installPrompt.userChoice.then((res) => { 
@@ -282,11 +280,9 @@
                             }
                         });
                     } else {
-                        // 如果不能直接安装（已安装或浏览器不支持），弹出类似微信的引导设置
                         setShowAndroidGuide(true);
                     }
                 } else {
-                    // 电脑端等
                      if (canInstall && installPrompt) {
                          installPrompt.prompt();
                      } else {
@@ -442,12 +438,12 @@
                 const input = loginInput.trim().toLowerCase().replace(/@/g, ''); 
                 if(!input) { setErrorMsg('请输入用户名'); setLoading(false); return; }
 
-                // 严格保留用户名校验逻辑
+                // 修改：严格限制用户名，输入错误震动并显示指定文案
                 const allowedUsers = ['rrii8', 'iibb8'];
                 if (!allowedUsers.includes(input)) {
-                    setErrorMsg('找不到该老板，请仔细核对广告中的信息！');
+                    setErrorMsg('找不到该老板，请仔细核对广告中的Telegram用户名！');
                     setIsShake(true); 
-                    if(navigator.vibrate) navigator.vibrate([100, 50, 100]); // 震动反馈
+                    if(navigator.vibrate) navigator.vibrate(200); // 震动
                     setTimeout(() => setIsShake(false), 500); 
                     setLoading(false);
                     return;
@@ -567,6 +563,7 @@
                     </div>
                     {showIosGuide && <GuideModal title="安装到 iPhone" onClose={()=>setShowIosGuide(false)}><p>1. 点击下方 <span className="text-blue-400 font-bold">分享按钮</span> <svg className="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></p><p>2. 下滑选择 <span className="text-white font-bold bg-gray-600 px-1 rounded">添加到主屏幕</span></p><p>3. 以后请从桌面图标打开</p></GuideModal>}
                     
+                    {/* 修改：安卓引导模态框内容，避免类似微信的弹窗设置 */}
                     {showAndroidGuide && <GuideModal title="安卓/通知设置" onClose={()=>setShowAndroidGuide(false)}>
                         <p>1. 请点击浏览器菜单 <span className="text-white font-bold">(⋮)</span></p>
                         <p>2. 选择 <span className="text-white font-bold">安装应用</span> 或 <span className="text-white font-bold">添加到主屏幕</span></p>
