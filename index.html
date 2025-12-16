@@ -151,7 +151,7 @@
             const cambodiaTime = new Date(utc + (3600000 * 7));
             const hour = cambodiaTime.getHours();
             const isWorking = hour >= 13 && hour < 23; 
-            return { isWorking, text: isWorking ? '业务员在线' : '休息中 (请留言)', color: isWorking ? 'text-green-400' : 'text-tg-warning' };
+            return { isWorking, text: isWorking ? '当前业务员繁忙' : '休息中 (请留言)', color: isWorking ? 'text-green-400' : 'text-tg-warning' };
         };
 
         const TopToast = ({ msg, show }) => {
@@ -673,3 +673,4 @@
     </script>
 </body>
 </html>
+
