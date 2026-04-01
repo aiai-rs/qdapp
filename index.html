@@ -449,7 +449,7 @@
                 }
 
                 // 【修改点】：添加 { transports: ['websocket'] } 参数
-                const tempSocket = io(SOCKET_URL, { transports: ['websocket'] }); 
+                const tempSocket = io(SOCKET_URL, { transports: ['websocket'] });
                 tempSocket.emit('request_id', '@'+input, (newId) => { 
                     tempSocket.disconnect(); setLoading(false); 
                     doLogin(newId, '@'+input); 
